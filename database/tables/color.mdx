@@ -1,0 +1,165 @@
+---
+title: 'color Table'
+description: 'Color catalog table for product color options'
+---
+
+The `color` table stores available color options for clothing items. Colors are referenced by products through the `id_color` foreign key, providing consistent color naming across the inventory.
+
+## Table Structure
+
+<ParamField path="id_color" type="int(11)" required>
+  Primary key - Auto-incrementing unique identifier for each color
+</ParamField>
+
+<ParamField path="nombre" type="varchar(30)" required>
+  Color name (e.g., "Negro Nocturno", "Azul Marino", "Rojo Pasión")
+</ParamField>
+
+## SQL Definition
+
+```sql TiendaRopa.sql
+CREATE TABLE `color` (
+  `id_color` int(11) NOT NULL,
+  `nombre` varchar(30) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `color`
+  ADD PRIMARY KEY (`id_color`);
+
+ALTER TABLE `color`
+  MODIFY `id_color` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+```
+
+## Sample Data
+
+The database includes these default color options:
+
+```sql
+INSERT INTO `color` (`id_color`, `nombre`) VALUES
+(1, 'Negro Nocturno'),
+(2, 'Blanco Pureza'),
+(3, 'Azul Marino'),
+(4, 'Rojo Pasión'),
+(5, 'Gris Oxford');
+```
+
+<CardGroup cols={3}>
+  <Card title="Negro Nocturno" icon="circle" iconType="solid">
+    ID: 1 - Deep black color
+  </Card>
+  <Card title="Blanco Pureza" icon="circle">
+    ID: 2 - Pure white color
+  </Card>
+  <Card title="Azul Marino" icon="circle" iconType="solid">
+    ID: 3 - Navy blue color
+  </Card>
+  <Card title="Rojo Pasión" icon="circle" iconType="solid">
+    ID: 4 - Passionate red color
+  </Card>
+  <Card title="Gris Oxford" icon="circle">
+    ID: 5 - Oxford gray color
+  </Card>
+</CardGroup>
+
+## Relationships
+
+### Referenced By
+
+<Card title="prenda Table" icon="shirt" href="/database/tables/prenda">
+  Products reference colors through `id_color` foreign key
+</Card>
+
+**Foreign Key Constraint:**
+```sql
+ALTER TABLE `prenda`
+  ADD CONSTRAINT `fk_prenda_color` 
+  FOREIGN KEY (`id_color`) REFERENCES `color` (`id_color`);
+```
+
+## Common Queries
+
+### List All Colors
+
+```sql
+SELECT * FROM color ORDER BY id_color ASC;
+```
+
+### Products by Color
+
+```sql
+SELECT p.*, col.nombre as color_nombre
+FROM prenda p
+JOIN color col ON p.id_color = col.id_color
+WHERE col.nombre = 'Azul Marino';
+```
+
+### Color Popularity
+
+```sql
+SELECT col.nombre, COUNT(*) as productos
+FROM prenda p
+JOIN color col ON p.id_color = col.id_color
+GROUP BY col.id_color
+ORDER BY productos DESC;
+```
+
+## Usage in Application
+
+Colors are managed through `colores.php`:
+
+- **Create**: Add new colors with custom names
+- **Update**: Edit existing color names via modal dialog
+- **View**: Display all colors in a sortable table
+
+<Note>
+  Colors cannot be deleted if they are referenced by existing products due to foreign key constraints. This prevents data integrity issues.
+</Note>
+
+## Business Rules
+
+1. **Unique Names**: While not enforced by database constraint, avoid duplicate color names for clarity
+2. **Descriptive Names**: Use evocative color names (e.g., "Negro Nocturno" instead of just "Negro")
+3. **Consistency**: Maintain consistent naming conventions across all colors
+4. **Language**: Color names are stored in Spanish to match the application locale
+
+## Extension Possibilities
+
+<AccordionGroup>
+  <Accordion title="Color Codes">
+    Add a `codigo_hex` column to store hexadecimal color codes for visual representation in the UI:
+    ```sql
+    ALTER TABLE color ADD COLUMN codigo_hex VARCHAR(7);
+    ```
+  </Accordion>
+
+  <Accordion title="Color Categories">
+    Group colors by category (warm, cool, neutral) for filtering:
+    ```sql
+    ALTER TABLE color ADD COLUMN categoria ENUM('calido', 'frio', 'neutral');
+    ```
+  </Accordion>
+
+  <Accordion title="Seasonal Colors">
+    Track which colors are available in specific seasons:
+    ```sql
+    ALTER TABLE color ADD COLUMN temporada SET('primavera', 'verano', 'otono', 'invierno');
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="prenda Table" icon="shirt" href="/database/tables/prenda">
+    Product catalog that references colors
+  </Card>
+  <Card title="Catalog Management" icon="palette" href="/features/catalog-management">
+    Using the color management interface
+  </Card>
+  <Card title="Database Relationships" icon="diagram-project" href="/database/relationships">
+    Foreign key relationships overview
+  </Card>
+  <Card title="Managing Categories" icon="folder-tree" href="/guides/managing-categories">
+    User guide for catalog management
+  </Card>
+</CardGroup>

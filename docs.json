@@ -61,6 +61,8 @@
               "database/overview",
               "database/tables/prenda",
               "database/tables/categoria",
+              "database/tables/color",
+              "database/tables/talla",
               "database/tables/empleado",
               "database/tables/proveedor",
               "database/tables/movimiento-stock",

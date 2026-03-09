@@ -1,0 +1,261 @@
+---
+title: 'talla Table'
+description: 'Size catalog table for clothing size options'
+---
+
+The `talla` table stores available size options for clothing items. Sizes are referenced by products through the `id_talla` foreign key, ensuring consistent sizing across the inventory system.
+
+## Table Structure
+
+<ParamField path="id_talla" type="int(11)" required>
+  Primary key - Auto-incrementing unique identifier for each size
+</ParamField>
+
+<ParamField path="talla" type="varchar(10)" required>
+  Size code (e.g., "ch", "m", "g", "ech", "eg")
+</ParamField>
+
+## SQL Definition
+
+```sql TiendaRopa.sql
+CREATE TABLE `talla` (
+  `id_talla` int(11) NOT NULL,
+  `talla` varchar(10) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `talla`
+  ADD PRIMARY KEY (`id_talla`);
+
+ALTER TABLE `talla`
+  MODIFY `id_talla` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+```
+
+## Sample Data
+
+The database includes these default size options:
+
+```sql
+INSERT INTO `talla` (`id_talla`, `talla`) VALUES
+(1, 'ch'),
+(2, 'm'),
+(3, 'g'),
+(7, 'ech'),
+(8, 'eg');
+```
+
+### Size Code Reference
+
+<CardGroup cols={3}>
+  <Card title="CH - Chico" icon="ruler">
+    ID: 1 - Small size
+  </Card>
+  <Card title="M - Mediano" icon="ruler">
+    ID: 2 - Medium size
+  </Card>
+  <Card title="G - Grande" icon="ruler">
+    ID: 3 - Large size
+  </Card>
+  <Card title="ECH - Extra Chico" icon="ruler">
+    ID: 7 - Extra small size
+  </Card>
+  <Card title="EG - Extra Grande" icon="ruler">
+    ID: 8 - Extra large size
+  </Card>
+</CardGroup>
+
+<Info>
+  Size codes use Spanish abbreviations: **ch** (chico/small), **m** (mediano/medium), **g** (grande/large), **ech** (extra chico/extra small), **eg** (extra grande/extra large)
+</Info>
+
+## Relationships
+
+### Referenced By
+
+<Card title="prenda Table" icon="shirt" href="/database/tables/prenda">
+  Products reference sizes through `id_talla` foreign key
+</Card>
+
+**Foreign Key Constraint:**
+```sql
+ALTER TABLE `prenda`
+  ADD CONSTRAINT `fk_prenda_talla` 
+  FOREIGN KEY (`id_talla`) REFERENCES `talla` (`id_talla`);
+```
+
+## Common Queries
+
+### List All Sizes
+
+```sql
+SELECT * FROM talla ORDER BY id_talla ASC;
+```
+
+### Products by Size
+
+```sql
+SELECT p.*, t.talla as talla_nombre
+FROM prenda p
+JOIN talla t ON p.id_talla = t.id_talla
+WHERE t.talla = 'm';
+```
+
+### Size Distribution
+
+```sql
+SELECT t.talla, COUNT(*) as productos
+FROM prenda p
+JOIN talla t ON p.id_talla = t.id_talla
+GROUP BY t.id_talla
+ORDER BY productos DESC;
+```
+
+### Products by Category and Size
+
+```sql
+SELECT c.nombre as categoria, t.talla, COUNT(*) as productos
+FROM prenda p
+JOIN categoria c ON p.id_categoria = c.id_categoria
+JOIN talla t ON p.id_talla = t.id_talla
+GROUP BY c.id_categoria, t.id_talla
+ORDER BY c.nombre, t.talla;
+```
+
+<Note>
+  The database has a composite index `idx_prenda_cat_talla` on `(id_categoria, id_talla)` that optimizes queries filtering by both category and size.
+</Note>
+
+## Usage in Application
+
+Sizes are managed through `tallas.php`:
+
+- **Create**: Add new size codes
+- **Update**: Edit existing size codes via modal dialog
+- **Delete**: Remove sizes (only if not referenced by products)
+- **View**: Display all sizes in a sortable table
+
+### Create Operation
+
+```php tallas.php
+if(isset($_POST['add'])){
+    $stmt = $conn->prepare("INSERT INTO talla (talla) VALUES (?)");
+    $stmt->execute([$_POST['talla']]);
+    header("Location: tallas.php?msg=creado");
+}
+```
+
+### Update Operation
+
+```php tallas.php
+if(isset($_POST['update'])){
+    $stmt = $conn->prepare("UPDATE talla SET talla = ? WHERE id_talla = ?");
+    $stmt->execute([$_POST['talla'], $_POST['id_talla']]);
+    header("Location: tallas.php?msg=actualizado");
+}
+```
+
+### Delete Operation
+
+```php tallas.php
+if(isset($_GET['delete'])){
+    try {
+        $stmt = $conn->prepare("DELETE FROM talla WHERE id_talla = ?");
+        $stmt->execute([$_GET['delete']]);
+        header("Location: tallas.php?msg=eliminado");
+    } catch (Exception $e) {
+        $error = "No se puede eliminar esta talla porque tiene productos asociados.";
+    }
+}
+```
+
+## Business Rules
+
+1. **Lowercase Convention**: Size codes are stored in lowercase for consistency
+2. **Abbreviations**: Use standardized Spanish abbreviations (ch, m, g, ech, eg)
+3. **Deletion Constraints**: Sizes cannot be deleted if referenced by products
+4. **Unique Codes**: Avoid duplicate size codes to prevent confusion
+
+<Warning>
+  Unlike categories and colors, sizes **can** be deleted if they have no associated products. Exercise caution when deleting sizes to avoid accidentally removing commonly used options.
+</Warning>
+
+## Extension Possibilities
+
+<AccordionGroup>
+  <Accordion title="International Sizing">
+    Add columns for international size equivalents:
+    ```sql
+    ALTER TABLE talla 
+      ADD COLUMN talla_us VARCHAR(10),
+      ADD COLUMN talla_eu VARCHAR(10),
+      ADD COLUMN talla_uk VARCHAR(10);
+    ```
+  </Accordion>
+
+  <Accordion title="Measurement Ranges">
+    Store measurement ranges for each size:
+    ```sql
+    ALTER TABLE talla 
+      ADD COLUMN medida_min DECIMAL(5,2),
+      ADD COLUMN medida_max DECIMAL(5,2),
+      ADD COLUMN unidad ENUM('cm', 'inch');
+    ```
+  </Accordion>
+
+  <Accordion title="Size Categories">
+    Categorize sizes by type (adult, child, infant):
+    ```sql
+    ALTER TABLE talla 
+      ADD COLUMN tipo ENUM('adulto', 'infantil', 'bebe');
+    ```
+  </Accordion>
+
+  <Accordion title="Gender-Specific Sizing">
+    Distinguish between men's and women's sizing:
+    ```sql
+    ALTER TABLE talla 
+      ADD COLUMN genero ENUM('hombre', 'mujer', 'unisex') DEFAULT 'unisex';
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Analytics Queries
+
+### Stock Value by Size
+
+```sql
+SELECT t.talla, 
+       COUNT(*) as productos,
+       SUM(p.stock_actual) as stock_total,
+       SUM(p.precio * p.stock_actual) as valor_inventario
+FROM prenda p
+JOIN talla t ON p.id_talla = t.id_talla
+GROUP BY t.id_talla
+ORDER BY valor_inventario DESC;
+```
+
+### Low Stock by Size
+
+```sql
+SELECT t.talla, p.nombre, p.stock_actual
+FROM prenda p
+JOIN talla t ON p.id_talla = t.id_talla
+WHERE p.stock_actual < 10
+ORDER BY p.stock_actual ASC;
+```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="prenda Table" icon="shirt" href="/database/tables/prenda">
+    Product catalog that references sizes
+  </Card>
+  <Card title="Catalog Management" icon="ruler" href="/features/catalog-management">
+    Using the size management interface
+  </Card>
+  <Card title="Database Indexes" icon="database" href="/database/indexes">
+    Composite index for category+size queries
+  </Card>
+  <Card title="Managing Categories" icon="folder-tree" href="/guides/managing-categories">
+    User guide for catalog management
+  </Card>
+</CardGroup>
