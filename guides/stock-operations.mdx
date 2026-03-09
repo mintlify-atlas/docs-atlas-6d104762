@@ -1,0 +1,604 @@
+---
+title: 'Stock Operations'
+description: 'Manage inventory movements including entries, exits, and adjustments in TiendaRopa'
+icon: 'boxes-stacked'
+---
+
+## Overview
+
+The stock operations module tracks all inventory movements in your store, providing a complete audit trail of stock level changes. Every movement records what product was affected, the quantity, the type of operation, and which employee authorized it.
+
+<Note>
+  Stock operations are also called "movimientos de inventario" or "movimientos de stock" in the system.
+</Note>
+
+## Types of Stock Movements
+
+The system supports three types of inventory operations:
+
+<CardGroup cols={3}>
+  <Card title="Entrada" icon="arrow-down" color="#10b981">
+    **Stock Entry**
+    
+    Increases inventory when:
+    - New merchandise arrives
+    - Returns from customers
+    - Transfers from other locations
+  </Card>
+  
+  <Card title="Salida" icon="arrow-up" color="#ef4444">
+    **Stock Exit**
+    
+    Decreases inventory when:
+    - Products are sold
+    - Items are transferred out
+    - Returns to suppliers
+  </Card>
+  
+  <Card title="Ajuste" icon="sliders" color="#6366f1">
+    **Stock Adjustment**
+    
+    Corrects inventory for:
+    - Physical count discrepancies
+    - Damaged goods removal
+    - Lost or found items
+  </Card>
+</CardGroup>
+
+## Accessing Stock Operations
+
+Navigate to the **Movimientos de Inventario** page (`movimientos.php`) from the main navigation menu.
+
+### Interface Layout
+
+The page consists of:
+
+1. **Quick-add form** (top): Horizontal form for registering new movements
+2. **Movement history table** (below): Chronological list of all movements (newest first)
+
+## Registering a Stock Movement
+
+<Steps>
+  <Step title="Select the product">
+    In the **"Prenda"** dropdown, select the product for which you're recording a movement.
+    
+    The dropdown shows:
+    - All products currently in the system
+    - Product names only (not IDs)
+    - Loaded from the `prenda` table
+    
+    <Tip>
+      If the product you need isn't listed, you must create it first in the Product Management section.
+    </Tip>
+  </Step>
+  
+  <Step title="Select the movement type">
+    In the **"Tipo"** dropdown, choose the operation type:
+    
+    **entrada** (Entry)
+    - Use when stock is increasing
+    - Adds quantity to `stock_actual`
+    - Displayed in green in the history table
+    
+    **salida** (Exit)
+    - Use when stock is decreasing
+    - Subtracts quantity from `stock_actual`
+    - Displayed in red in the history table
+    
+    **ajuste** (Adjustment)
+    - Use for corrections or inventory reconciliation
+    - Can increase or decrease stock (based on quantity sign)
+    - Displayed in red in the history table
+  </Step>
+  
+  <Step title="Enter the quantity">
+    In the **"Cantidad"** field, enter the number of units:
+    
+    **For entries and exits:**
+    - Enter positive numbers only
+    - The system automatically adds or subtracts based on movement type
+    - Example: `10` for 10 units
+    
+    **For adjustments:**
+    - Enter positive or negative numbers
+    - Positive increases stock: `+5` or `5`
+    - Negative decreases stock: `-3`
+    
+    <Warning>
+      Be careful with quantities—incorrect entries directly affect your inventory levels. There is no undo function.
+    </Warning>
+  </Step>
+  
+  <Step title="Select the authorizing employee">
+    In the **"Empleado que autoriza"** dropdown, select the employee responsible for this movement.
+    
+    <Note>
+      This creates an audit trail. Always select the actual person performing the operation, not a default user.
+    </Note>
+  </Step>
+  
+  <Step title="Submit the movement">
+    Click the **"Registrar"** button (green, full-width) to record the movement.
+  </Step>
+  
+  <Step title="Verify the operation">
+    After successful registration:
+    - Page reloads automatically
+    - New movement appears at the top of the history table
+    - Product's `stock_actual` has been updated
+    - Form clears, ready for the next entry
+    
+    <Tip>
+      Go to the main inventory page to verify the product's stock level was updated correctly.
+    </Tip>
+  </Step>
+</Steps>
+
+## How Stock Updates Work
+
+### Automatic Stock Calculation
+
+When you register a movement, the system automatically updates the product's current stock:
+
+```php
+// Determine the operator based on movement type
+$operador = ($_POST['tipo'] == 'entrada') ? "+" : "-";
+if($_POST['tipo'] == 'ajuste') $operador = "+"; // Adjustments handle their own sign
+
+// Update the product's stock_actual
+$conn->query("UPDATE prenda 
+              SET stock_actual = stock_actual $operador {$_POST['cant']} 
+              WHERE id_prenda = {$_POST['prenda']}");
+```
+
+### Movement Type Logic
+
+| Movement Type | Operator | Effect on Stock |
+|--------------|----------|------------------|
+| **entrada** | `+` | Increases `stock_actual` by quantity |
+| **salida** | `-` | Decreases `stock_actual` by quantity |
+| **ajuste** | `+` | Adds quantity (can be negative) to `stock_actual` |
+
+### Examples
+
+**Example 1: Stock Entry**
+- Product: Camisa Oxford (current stock: 10)
+- Type: entrada
+- Quantity: 20
+- Result: `10 + 20 = 30` (new stock)
+
+**Example 2: Stock Exit**
+- Product: Pantalón Mezclilla (current stock: 50)
+- Type: salida
+- Quantity: 5
+- Result: `50 - 5 = 45` (new stock)
+
+**Example 3: Positive Adjustment**
+- Product: Vestido Floral (current stock: 15)
+- Type: ajuste
+- Quantity: 3
+- Result: `15 + 3 = 18` (corrected stock after physical count found 3 extra units)
+
+**Example 4: Negative Adjustment**
+- Product: Bufanda Lana (current stock: 25)
+- Type: ajuste
+- Quantity: -2
+- Result: `25 + (-2) = 23` (corrected stock after 2 damaged units removed)
+
+## Viewing Movement History
+
+The movement history table displays all operations in reverse chronological order (newest first).
+
+### Table Columns
+
+| Column | Description |
+|--------|-------------|
+| **Fecha** | Date and time of the movement (YYYY-MM-DD HH:MM:SS) |
+| **Prenda** | Product name |
+| **Tipo** | Movement type (ENTRADA, SALIDA, or AJUSTE) in uppercase, color-coded |
+| **Cant.** | Quantity (number of units) |
+| **Empleado** | Employee who authorized the movement |
+
+### Color Coding
+
+Movement types are color-coded for quick visual identification:
+
+- **ENTRADA**: Green text (`text-success` class)
+- **SALIDA**: Red text (`text-danger` class)
+- **AJUSTE**: Red text (`text-danger` class)
+
+<Tip>
+  The color coding helps you quickly scan for unusual patterns, such as many exits in a row or frequent adjustments.
+</Tip>
+
+### Query Behind the Table
+
+```sql
+SELECT m.*, p.nombre as p_nom, e.nombre as e_nom 
+FROM movimiento_stock m 
+JOIN prenda p ON m.id_prenda = p.id_prenda 
+JOIN empleado e ON m.id_empleado = e.id_empleado 
+ORDER BY fecha DESC
+```
+
+## Movement Validation and Constraints
+
+### Current Limitations
+
+<Warning>
+  The system currently does **not** validate that stock doesn't go negative. You can record exits or adjustments that result in negative inventory levels.
+</Warning>
+
+**Example of what's allowed but shouldn't be:**
+- Current stock: 5 units
+- Record salida: 10 units
+- Result: -5 units (negative stock!)
+
+This is a known limitation that requires careful manual monitoring.
+
+### Best Practices to Avoid Negative Stock
+
+<Steps>
+  <Step title="Check current stock before recording exits">
+    Before registering a salida, view the product in the inventory page to verify sufficient stock exists.
+  </Step>
+  
+  <Step title="Use adjustments for corrections">
+    If you discover a stock count error, use ajuste (not salida) and enter the exact difference, not the absolute quantity.
+  </Step>
+  
+  <Step title="Implement physical stock checks">
+    Regularly perform physical counts and reconcile with system stock using adjustments.
+  </Step>
+  
+  <Step title="Train staff on movement types">
+    Ensure everyone understands when to use entrada vs. salida vs. ajuste.
+  </Step>
+</Steps>
+
+### Future Enhancement Recommendations
+
+The system could be improved with:
+
+```php
+// Validation before stock update
+$stmt = $conn->prepare("SELECT stock_actual FROM prenda WHERE id_prenda = ?");
+$stmt->execute([$_POST['prenda']]);
+$current_stock = $stmt->fetchColumn();
+
+if ($tipo == 'salida' && $cantidad > $current_stock) {
+    die("Error: Stock insuficiente. Stock actual: $current_stock, cantidad solicitada: $cantidad");
+}
+```
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Receiving new merchandise from supplier">
+    When you receive a shipment:
+    
+    1. **First, register the reception** (if not already done):
+       - Go to **Recepciones de Mercancía** (`registros.php`)
+       - Record which product, employee, and supplier
+    
+    2. **Then, record the stock entry**:
+       - Go to **Movimientos de Inventario** (`movimientos.php`)
+       - Select the product
+       - Choose **entrada** as type
+       - Enter the quantity received
+       - Select the receiving employee
+       - Click **Registrar**
+    
+    <Note>
+      The reception record (registros) documents WHERE the stock came from. The stock movement (movimientos) updates the actual inventory count.
+    </Note>
+  </Accordion>
+  
+  <Accordion title="Recording a sale (manual stock reduction)">
+    When products are sold (without an integrated POS system):
+    
+    1. Navigate to **Movimientos de Inventario**
+    2. Select the product sold
+    3. Choose **salida** as type
+    4. Enter the quantity sold
+    5. Select the employee who processed the sale
+    6. Click **Registrar**
+    
+    <Warning>
+      This manual process is prone to errors. Consider integrating with a POS system or implementing a dedicated sales module.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Conducting a physical inventory count">
+    During periodic inventory audits:
+    
+    1. **Perform physical count**: Count actual units for each product
+    2. **Compare with system stock**: Check current `stock_actual` in the inventory page
+    3. **Record adjustments for discrepancies**:
+       - Go to **Movimientos de Inventario**
+       - Select the product
+       - Choose **ajuste** as type
+       - Calculate the difference:
+         - If physical > system: Enter positive number (e.g., `+5`)
+         - If physical < system: Enter negative number (e.g., `-3`)
+       - Select the auditing employee
+       - Click **Registrar**
+    
+    **Example:**
+    - System shows: 50 units
+    - Physical count: 47 units
+    - Difference: -3
+    - Record adjustment: ajuste with quantity `-3`
+  </Accordion>
+  
+  <Accordion title="Removing damaged or defective items">
+    When products must be removed from inventory due to damage:
+    
+    1. Navigate to **Movimientos de Inventario**
+    2. Select the damaged product
+    3. Choose **ajuste** as type (not salida)
+    4. Enter negative quantity (e.g., `-2` for 2 damaged units)
+    5. Select the employee who identified/removed the items
+    6. Click **Registrar**
+    
+    <Tip>
+      Use ajuste instead of salida for damaged goods to distinguish between actual sales and inventory shrinkage in reporting.
+    </Tip>
+  </Accordion>
+  
+  <Accordion title="Transferring stock between locations (future enhancement)">
+    While not explicitly supported, you can simulate inter-location transfers:
+    
+    **At source location:**
+    1. Record a **salida** for the transferred quantity
+    2. Note in a separate log: "Transfer to [Location Name]"
+    
+    **At destination location:**
+    1. Record an **entrada** for the received quantity
+    2. Note in a separate log: "Transfer from [Location Name]"
+    
+    <Warning>
+      This manual process doesn't link the two movements. Consider developing a dedicated transfer module for multi-location operations.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Stock level doesn't match expected value after movement">
+    Possible causes:
+    
+    1. **Wrong movement type selected**:
+       - You selected entrada but meant salida (or vice versa)
+       - Solution: Record a correcting ajuste with opposite quantity
+    
+    2. **Incorrect quantity entered**:
+       - You entered 100 instead of 10
+       - Solution: Calculate the difference and record an ajuste
+    
+    3. **Multiple movements not visible**:
+       - Several users recorded movements simultaneously
+       - Solution: Review the full movement history table
+    
+    4. **Direct database edit**:
+       - Someone modified stock_actual directly in the database
+       - Solution: Perform physical count and use ajuste to correct
+  </Accordion>
+  
+  <Accordion title="Negative stock levels in inventory">
+    If a product shows negative stock:
+    
+    **Identify the cause:**
+    1. Check the movement history for that product
+    2. Look for large salida entries that exceeded available stock
+    3. Identify when the stock went negative
+    
+    **Correct the issue:**
+    1. Perform a physical count to determine actual stock
+    2. Record an ajuste to set stock to the correct value:
+       - Current stock: -5
+       - Actual count: 0
+       - Adjustment: +5
+    
+    <Warning>
+      Negative stock indicates a process failure. Investigate why the salida was recorded without checking available inventory.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Cannot find product in dropdown">
+    If the product you need isn't in the Prenda dropdown:
+    
+    1. **Verify the product exists**: Go to the inventory page and search for it
+    2. **Create the product if missing**: Use **Nueva Prenda** to add it
+    3. **Refresh the movements page**: After creating the product, refresh movimientos.php
+    4. **Check database**: Query the `prenda` table to confirm the product exists
+    
+    <Note>
+      The dropdown is populated on page load. If you create a product in another tab, refresh movimientos.php to see it.
+    </Note>
+  </Accordion>
+  
+  <Accordion title="Employee doesn't appear in dropdown">
+    If an employee isn't available in the "Empleado que autoriza" dropdown:
+    
+    1. **Verify employee exists**: Go to **Gestión de Empleados**
+    2. **Create employee if missing**: Use the registration form
+    3. **Refresh the movements page**: After creating, refresh movimientos.php
+    4. **Check for JavaScript errors**: Open browser console (F12)
+  </Accordion>
+  
+  <Accordion title="Movement recorded but doesn't appear in history">
+    If a movement seems to register but doesn't show in the table:
+    
+    1. **Check for error messages**: Look at the top of the page
+    2. **Verify database insertion**: Check if the record exists in `movimiento_stock` table
+    3. **Check date/time**: Ensure your server's clock is correct (movements sort by fecha)
+    4. **Refresh the page**: Try a hard refresh (Ctrl+F5 or Cmd+Shift+R)
+    5. **Review query**: The table uses a JOIN query that might fail if related records are missing
+  </Accordion>
+  
+  <Accordion title="Need to reverse a movement (undo)">
+    There is no built-in undo function. To reverse a movement:
+    
+    **Manual reversal:**
+    1. Identify the incorrect movement in the history table
+    2. Note its type, product, and quantity
+    3. Record a new movement with the opposite effect:
+       - If original was **entrada** of 10: Record **salida** of 10
+       - If original was **salida** of 5: Record **entrada** of 5
+       - If original was **ajuste** of +3: Record **ajuste** of -3
+    
+    <Note>
+      The reversal creates a new record—it doesn't delete the original. This maintains audit trail integrity.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Integration with Other Modules
+
+### Product Management Integration
+
+Stock movements directly update the `stock_actual` field in the `prenda` table:
+
+```sql
+UPDATE prenda 
+SET stock_actual = stock_actual + 20 
+WHERE id_prenda = 5;
+```
+
+When you view the inventory page (`index.php`), the stock column displays this updated value.
+
+### Merchandise Reception Integration
+
+While movements and receptions are related, they're recorded separately:
+
+- **Recepciones de Mercancía** (`registros.php`): Tracks WHAT was received, from WHICH supplier, by WHICH employee
+- **Movimientos de Inventario** (`movimientos.php`): Updates the actual stock count
+
+<Tip>
+  **Workflow recommendation**: When receiving goods, record both:
+  1. First, the reception (registros) for audit trail
+  2. Then, the stock entry (movimientos) to update inventory
+</Tip>
+
+### Employee Audit Integration
+
+Every movement links to an employee via `id_empleado`:
+
+```sql
+SELECT e.nombre, COUNT(*) as movement_count
+FROM movimiento_stock m
+JOIN empleado e ON m.id_empleado = e.id_empleado
+GROUP BY e.nombre
+ORDER BY movement_count DESC;
+```
+
+This query shows which employees process the most stock movements.
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Managing Products" icon="box" href="/guides/managing-products">
+    Learn how to create products and view current stock levels
+  </Card>
+  
+  <Card title="Managing Employees" icon="users" href="/guides/managing-employees">
+    Set up employee accounts for movement authorization tracking
+  </Card>
+  
+  <Card title="Database Schema" icon="database" href="/database/overview">
+    Understand the movimiento_stock table structure
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Always verify stock before exits">
+    Check the current stock level in the inventory page before recording salida movements to avoid negative stock.
+  </Step>
+  
+  <Step title="Use descriptive employee names">
+    Always select the actual employee performing the operation—accurate audit trails depend on this.
+  </Step>
+  
+  <Step title="Use the correct movement type">
+    - **entrada**: When stock physically arrives
+    - **salida**: When stock physically leaves (sales, transfers out)
+    - **ajuste**: For corrections, damaged goods, or reconciliation
+  </Step>
+  
+  <Step title="Document adjustments externally">
+    When recording adjustments, maintain a separate log explaining WHY the adjustment was needed (e.g., "Physical count found 3 extra units" or "Removed 2 damaged shirts").
+  </Step>
+  
+  <Step title="Regular physical counts">
+    Schedule periodic inventory audits:
+    - Weekly for high-turnover items
+    - Monthly for standard items
+    - Quarterly for slow-moving items
+    
+    Reconcile discrepancies immediately using ajuste movements.
+  </Step>
+  
+  <Step title="Review movement history regularly">
+    Periodically review the movement history table for:
+    - Unusual patterns (many adjustments for one product)
+    - Frequent negative corrections (indicates process issues)
+    - High volume of movements by one employee (potential audit flag)
+  </Step>
+  
+  <Step title="Implement double-entry verification">
+    For high-value or critical inventory:
+    - Have one employee perform the operation
+    - Have a second employee verify and authorize
+    - Document both employees in a separate log
+  </Step>
+</Steps>
+
+## Reporting and Analytics (Future Enhancement)
+
+While not currently built into the system, you could generate useful reports with SQL queries:
+
+### Movement Volume by Type
+
+```sql
+SELECT tipo_movimiento, COUNT(*) as cantidad_movimientos
+FROM movimiento_stock
+GROUP BY tipo_movimiento;
+```
+
+### Most Active Products
+
+```sql
+SELECT p.nombre, COUNT(*) as total_movimientos
+FROM movimiento_stock m
+JOIN prenda p ON m.id_prenda = p.id_prenda
+GROUP BY p.nombre
+ORDER BY total_movimientos DESC
+LIMIT 10;
+```
+
+### Employee Movement Activity
+
+```sql
+SELECT e.nombre, tipo_movimiento, COUNT(*) as cantidad
+FROM movimiento_stock m
+JOIN empleado e ON m.id_empleado = e.id_empleado
+GROUP BY e.nombre, tipo_movimiento
+ORDER BY e.nombre, tipo_movimiento;
+```
+
+### Daily Movement Summary
+
+```sql
+SELECT DATE(fecha) as dia, tipo_movimiento, SUM(cantidad) as total_unidades
+FROM movimiento_stock
+GROUP BY DATE(fecha), tipo_movimiento
+ORDER BY dia DESC;
+```
+
+<Tip>
+  Consider working with your developer to add a reporting dashboard that visualizes these queries.
+</Tip>

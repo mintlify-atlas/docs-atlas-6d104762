@@ -1,0 +1,490 @@
+---
+title: 'Managing Employees'
+description: 'Add, edit, and manage employee records with role assignments in TiendaRopa'
+icon: 'users'
+---
+
+## Overview
+
+The employee management system tracks staff members who interact with the inventory system. Employee records are essential for audit trails, as they link to product edits, stock movements, price changes, and merchandise receptions.
+
+<Note>
+  Employees in this system are user records for audit purposes, not full authentication accounts. The system currently does not include login functionality.
+</Note>
+
+## Why Employee Records Matter
+
+Employee tracking provides accountability across the system:
+
+- **Product Edits**: When editing products, you must select which employee made the change
+- **Price Changes**: All price updates are logged with the employee who authorized them
+- **Stock Movements**: Inventory entries, exits, and adjustments track the authorizing employee
+- **Merchandise Reception**: Product receptions record which employee received the goods
+
+<Warning>
+  Once an employee has associated records (edits, movements, receptions), they cannot be deleted from the system due to foreign key constraints.
+</Warning>
+
+## Accessing Employee Management
+
+Navigate to the **Gestión de Empleados** page (`empleados.php`) from the main navigation menu.
+
+### Interface Layout
+
+The page uses a two-column layout:
+
+- **Left Panel (4 columns):** Quick registration form for new employees
+- **Right Panel (8 columns):** Table of all employees with edit and delete options
+
+## Creating a New Employee
+
+<Steps>
+  <Step title="Locate the registration form">
+    On the left side, find the **"Registrar Nuevo Empleado"** card with a dark header.
+  </Step>
+  
+  <Step title="Enter employee name">
+    In the **"Nombre Completo"** field, enter the employee's full name.
+    
+    **Examples:**
+    - Juan García Martínez
+    - María Elena Rodríguez
+    - Carlos Alberto López
+    
+    <Tip>
+      Use full legal names for proper identification in audit trails.
+    </Tip>
+  </Step>
+  
+  <Step title="Select employee role">
+    Choose from the **"Puesto"** (Position) dropdown:
+    
+    **Available roles:**
+    - **empleado** - Standard employee role
+    - **gerente** - Manager role
+    
+    <Note>
+      Currently, roles are descriptive only and don't enforce permission differences in the system.
+    </Note>
+  </Step>
+  
+  <Step title="Save the employee record">
+    Click the **"Registrar"** button (full-width blue button) to create the employee record.
+  </Step>
+  
+  <Step title="Verify creation">
+    After successful creation:
+    - Page reloads with `?msg=creado` in the URL
+    - New employee appears in the table
+    - Form clears for next entry
+    - Employee is now available in dropdown menus throughout the system
+  </Step>
+</Steps>
+
+### Database Operation
+
+```sql
+INSERT INTO empleado (nombre, puesto) VALUES (?, ?)
+```
+
+The `id_empleado` is auto-generated as a primary key.
+
+## Viewing Employees
+
+The employee table displays:
+
+| Column | Description |
+|--------|-------------|
+| **ID** | Auto-generated unique identifier |
+| **Nombre** | Employee's full name |
+| **Puesto** | Role badge (blue for empleado, red for gerente) |
+| **Acción** | Edit and Delete buttons (yellow and red) |
+
+### Role Badge Colors
+
+- **empleado**: Blue badge (`badge bg-info`)
+- **gerente**: Red badge (`badge bg-danger`)
+
+These color-coded badges make it easy to identify management staff at a glance.
+
+## Editing an Employee
+
+Employee editing uses a modal dialog to update name or role without leaving the page.
+
+<Steps>
+  <Step title="Click Edit button">
+    In the employee table, locate the employee you want to modify and click the yellow **"Editar"** button.
+  </Step>
+  
+  <Step title="Modal opens with current data">
+    The **"Actualizar Empleado"** modal appears, pre-populated with:
+    - Hidden field: `id_empleado`
+    - **Nombre del Empleado**: Current name
+    - **Cambiar Puesto**: Current role selected in dropdown
+  </Step>
+  
+  <Step title="Update employee information">
+    Modify any fields as needed:
+    
+    **Nombre del Empleado** (required)
+    - Correct spelling errors
+    - Update to reflect legal name changes
+    - Adjust formatting
+    
+    **Cambiar Puesto** (required)
+    - Promote employee to gerente
+    - Demote gerente to empleado
+    - Correct role assignment errors
+  </Step>
+  
+  <Step title="Save changes">
+    Click **"Guardar Cambios"** (blue button) to save, or **"Cerrar"** (gray button) to cancel.
+  </Step>
+  
+  <Step title="Verify update">
+    After saving:
+    - Modal closes automatically
+    - Page reloads with `?msg=actualizado`
+    - Updated information appears in the table
+    - Role badge updates to reflect new position
+  </Step>
+</Steps>
+
+### Modal JavaScript Implementation
+
+```javascript
+function abrirEditar(id, nombre, puesto) {
+    document.getElementById('edit_id').value = id;
+    document.getElementById('edit_nombre').value = nombre;
+    document.getElementById('edit_puesto').value = puesto;
+    
+    var myModal = new bootstrap.Modal(document.getElementById('modalEditar'));
+    myModal.show();
+}
+```
+
+## Deleting an Employee
+
+<Warning>
+  Employee deletion is permanent and cannot be undone. Use with extreme caution.
+</Warning>
+
+<Steps>
+  <Step title="Locate the employee">
+    Find the employee record you want to delete in the table.
+  </Step>
+  
+  <Step title="Click Delete button">
+    Click the red **"Eliminar"** button in the Acción column.
+  </Step>
+  
+  <Step title="Confirm deletion">
+    A browser confirmation dialog appears:
+    > "¿Estás seguro de eliminar este empleado?"
+    
+    - Click **OK** to proceed
+    - Click **Cancel** to abort
+  </Step>
+  
+  <Step title="Handle result">
+    **Success Case:**
+    - Page reloads with `?msg=eliminado`
+    - Employee removed from table
+    - Employee no longer appears in system dropdowns
+    
+    **Failure Case:**
+    - Alert displayed: "No se puede eliminar este empleado porque tiene registros de mercancía asociados."
+    - Employee remains in the system
+    - Database integrity preserved
+  </Step>
+</Steps>
+
+### Why Deletion Fails
+
+Employees cannot be deleted if they have associated records in:
+
+1. **registro table**: Merchandise receptions the employee received
+2. **actualizacion table**: Price changes the employee authorized
+3. **movimiento_stock table**: Stock movements the employee processed
+
+This is enforced by foreign key constraints:
+
+```sql
+FOREIGN KEY (id_empleado) REFERENCES empleado(id_empleado)
+```
+
+<Tip>
+  **Alternative to deletion**: Instead of deleting employees with history, update their name to indicate inactive status (e.g., "[INACTIVE] Juan García").
+</Tip>
+
+## Employee Roles Explained
+
+### empleado (Employee)
+
+**Purpose**: Standard staff members who handle day-to-day operations
+
+**Typical responsibilities:**
+- Receiving merchandise
+- Processing stock movements
+- Basic product edits
+- Regular inventory updates
+
+**Visual indicator**: Blue badge in the table
+
+### gerente (Manager)
+
+**Purpose**: Supervisory staff with broader responsibilities
+
+**Typical responsibilities:**
+- Authorizing price changes
+- Approving large stock adjustments
+- Overseeing inventory accuracy
+- Managing employee records
+
+**Visual indicator**: Red badge in the table
+
+<Note>
+  Currently, both roles have identical system access. The role distinction is primarily for organizational hierarchy and audit trail context.
+</Note>
+
+### Future Role Enhancements
+
+While the current system treats roles as labels, future versions could implement:
+
+- **Permission-based access control**: Restrict certain operations to managers
+- **Approval workflows**: Require manager approval for price changes over a threshold
+- **Reporting access**: Limit financial reports to management roles
+- **Audit filtering**: Filter audit logs by role to identify patterns
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Setting up initial employee roster">
+    When first configuring the system:
+    
+    1. **Create manager accounts first**: Register all gerente-level staff
+    2. **Add employee accounts**: Register all empleado-level staff
+    3. **Verify in dropdowns**: Check that all names appear correctly in product edit forms
+    4. **Test role badges**: Ensure managers show red badges and employees show blue
+    
+    <Tip>
+      Consider creating a "System Admin" or "System" employee for automated processes or migrations.
+    </Tip>
+  </Accordion>
+  
+  <Accordion title="Promoting an employee to manager">
+    To change an employee's role:
+    
+    1. Click **Editar** on the employee's row
+    2. In the modal, change **Cambiar Puesto** from "empleado" to "gerente"
+    3. Click **Guardar Cambios**
+    4. Verify the badge changes from blue to red
+    
+    <Note>
+      Historical records maintain the employee's role at the time of the action, not the current role.
+    </Note>
+  </Accordion>
+  
+  <Accordion title="Handling employee departures">
+    When an employee leaves the company:
+    
+    **If they have NO associated records:**
+    - Delete the employee using the Eliminar button
+    
+    **If they have associated records:**
+    - Cannot delete (foreign key constraint)
+    - Update name to: "[INACTIVE - DATE] Original Name"
+    - Example: "[INACTIVE - 2026-03-15] Juan García"
+    - This preserves audit trails while indicating inactive status
+    
+    <Warning>
+      Never delete employees who have processed transactions. Historical data integrity depends on preserving employee records.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Correcting employee name spelling">
+    If you need to fix a typo or update a name:
+    
+    1. Click **Editar** on the employee
+    2. Update the **Nombre del Empleado** field
+    3. Click **Guardar Cambios**
+    4. Name updates throughout the system immediately
+    5. All historical records now show the corrected name
+    
+    <Tip>
+      Because of this behavior, name corrections should be made promptly to avoid confusion in audit trails.
+    </Tip>
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot delete employee - has associated records">
+    This is the most common issue:
+    
+    **Error message:**
+    > "No se puede eliminar este empleado porque tiene registros de mercancía asociados."
+    
+    **Why it happens:**
+    - Employee has received merchandise (`registro` table)
+    - Employee has authorized price changes (`actualizacion` table)
+    - Employee has processed stock movements (`movimiento_stock` table)
+    
+    **Solution:**
+    - Mark as inactive by updating the name: "[INACTIVE] Name"
+    - Keep the record in the system for data integrity
+    - Contact a database administrator if deletion is absolutely necessary
+  </Accordion>
+  
+  <Accordion title="Employee doesn't appear in dropdown menus">
+    If a newly created employee isn't available in product edit or stock movement forms:
+    
+    1. **Verify creation**: Check that the employee appears in the Gestión de Empleados table
+    2. **Refresh the other page**: The dropdown is populated on page load
+    3. **Check database**: Verify the record exists in the `empleado` table
+    4. **Browser cache**: Try a hard refresh (Ctrl+F5 or Cmd+Shift+R)
+  </Accordion>
+  
+  <Accordion title="Role badge shows wrong color">
+    Badge colors are determined by the `puesto` field:
+    
+    - **Blue (bg-info)**: puesto = 'empleado'
+    - **Red (bg-danger)**: puesto = 'gerente'
+    
+    If the wrong color appears:
+    1. Edit the employee
+    2. Check the selected value in **Cambiar Puesto**
+    3. Select the correct role
+    4. Save changes
+    5. Refresh the page to see the updated badge
+  </Accordion>
+  
+  <Accordion title="Edit modal shows wrong employee data">
+    This usually indicates a JavaScript error:
+    
+    1. Open browser console (F12)
+    2. Look for JavaScript errors
+    3. Check that special characters in names are handled correctly
+    4. Verify Bootstrap is loaded
+    5. Try editing a different employee to isolate the issue
+    
+    If only one employee has this issue, it may be related to special characters in their name.
+  </Accordion>
+  
+  <Accordion title="Cannot save employee - form validation fails">
+    Both fields are required:
+    
+    - **Nombre Completo**: Cannot be empty
+    - **Puesto**: Must select either "empleado" or "gerente"
+    
+    If the form won't submit:
+    1. Ensure the name field has text
+    2. Ensure a role is selected in the dropdown
+    3. Check browser console for validation errors
+    4. Try a different browser if issues persist
+  </Accordion>
+</AccordionGroup>
+
+## Employee Audit Trail Integration
+
+### Product Edits
+
+When editing products (`editar.php`), the employee dropdown is **required**:
+
+```php
+<select name="id_empleado" class="form-select border-danger" required>
+    <option value="">-- Seleccione su nombre --</option>
+    <?php
+    $res = $conn->query("SELECT id_empleado, nombre FROM empleado");
+    while($row = $res->fetch()) {
+        echo "<option value='{$row['id_empleado']}'>{$row['nombre']}</option>";
+    }
+    ?>
+</select>
+```
+
+### Price Change History
+
+Price updates create audit records with employee attribution:
+
+```sql
+INSERT INTO actualizacion (precio_anterior, precio_nuevo, id_prenda, id_empleado) 
+VALUES (?, ?, ?, ?)
+```
+
+View this history in **Historial de Actualización de Precios** (`actualizaciones.php`).
+
+### Stock Movements
+
+Inventory operations require an authorizing employee:
+
+```php
+<select name="emp" class="form-select">
+    <?php 
+    $es = $conn->query("SELECT id_empleado, nombre FROM empleado"); 
+    while($e = $es->fetch()) {
+        echo "<option value='{$e['id_empleado']}'>{$e['nombre']}</option>"; 
+    }
+    ?>
+</select>
+```
+
+### Merchandise Reception
+
+Product receptions record which employee received the goods:
+
+```php
+<select name="id_empleado" class="form-select" required>
+    <?php
+    $emps = $conn->query("SELECT id_empleado, nombre FROM empleado");
+    while($e = $emps->fetch()) {
+        echo "<option value='{$e['id_empleado']}'>{$e['nombre']}</option>";
+    }
+    ?>
+</select>
+```
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Managing Products" icon="box" href="/guides/managing-products">
+    Learn how employee selection is required when editing products
+  </Card>
+  
+  <Card title="Stock Operations" icon="boxes-stacked" href="/guides/stock-operations">
+    Understand how employees authorize inventory movements
+  </Card>
+  
+  <Card title="Database Schema" icon="database" href="/database/overview">
+    Review the empleado table structure and foreign key relationships
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Create employee records before operations">
+    Set up all employee accounts before starting inventory work. This ensures proper audit trails from day one.
+  </Step>
+  
+  <Step title="Use full legal names">
+    Enter complete, official names for clear identification in audit reports and historical records.
+  </Step>
+  
+  <Step title="Assign roles accurately">
+    Use the gerente role for supervisory staff and empleado for standard staff to maintain organizational clarity.
+  </Step>
+  
+  <Step title="Never delete employees with history">
+    Preserve employee records that have associated transactions. Use the [INACTIVE] naming convention instead.
+  </Step>
+  
+  <Step title="Review employee actions regularly">
+    Periodically review audit trails (price changes, stock movements) to ensure employees are using the system correctly.
+  </Step>
+  
+  <Step title="Update roles promptly">
+    When employees are promoted or change positions, update their role in the system immediately to maintain accurate organizational hierarchy.
+  </Step>
+</Steps>

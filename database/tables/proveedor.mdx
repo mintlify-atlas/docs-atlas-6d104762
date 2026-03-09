@@ -1,0 +1,324 @@
+---
+title: proveedor Table
+description: Supplier information table storing vendor contact details and locations
+---
+
+## Overview
+
+The `proveedor` table maintains supplier/vendor information for the clothing store. It stores essential contact details and addresses for companies that supply products to the inventory. This table is linked to products through the `registro` table, establishing the supply chain relationship.
+
+**Table Name:** `proveedor`  
+**Engine:** InnoDB  
+**Character Set:** utf8mb4  
+**Primary Key:** `id_proveedor`
+
+## Table Structure
+
+### Column Definitions
+
+<ParamField path="id_proveedor" type="int(11)" required>
+  Primary key identifier for the supplier. Auto-increments on insert.
+</ParamField>
+
+<ParamField path="nombre" type="varchar(100)" required>
+  Business name or company name of the supplier.
+</ParamField>
+
+<ParamField path="telefono" type="char(10)" default="NULL">
+  Contact phone number. Format: 10-digit Mexican phone number. Must be unique across all suppliers.
+</ParamField>
+
+<ParamField path="direccion" type="varchar(255)" default="NULL">
+  Physical address of the supplier's business location.
+</ParamField>
+
+## CREATE TABLE Statement
+
+```sql
+CREATE TABLE `proveedor` (
+  `id_proveedor` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `telefono` char(10) DEFAULT NULL,
+  `direccion` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `proveedor`
+  ADD PRIMARY KEY (`id_proveedor`),
+  ADD UNIQUE KEY `telefono` (`telefono`);
+
+ALTER TABLE `proveedor`
+  MODIFY `id_proveedor` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+```
+
+## Indexes
+
+| Index Name | Type | Columns | Purpose |
+|------------|------|---------|----------|
+| `PRIMARY` | PRIMARY KEY | `id_proveedor` | Unique identifier |
+| `telefono` | UNIQUE KEY | `telefono` | Ensures phone number uniqueness |
+
+## Foreign Key Relationships
+
+### Child Tables (Referencing)
+
+<Card title="registro" icon="file-lines" href="./registro">
+  **Constraint:** `fk_reg_prov`  
+  **Relationship:** One supplier can supply many products  
+  Each product registration (`registro`) links a product to its supplier via `registro.id_proveedor`
+</Card>
+
+## Sample Data
+
+```sql
+INSERT INTO `proveedor` (`id_proveedor`, `nombre`, `telefono`, `direccion`) VALUES
+(1, 'Casimires y Trajes Lucerna', '4499156551', 'Calle Francisco I. Madero 102 A, Aguascalientes'),
+(2, 'Uniformes América', '4494357284', 'Av. Convención 1914 Ote. 105-A, Aguascalientes'),
+(3, 'La Charrita de Aguascalientes', '4493110929', 'Calle Del Carmen 313, Aguascalientes'),
+(4, 'Maquilas Textiles Arenas', '4492994799', 'Paseo de la Explanada 145, Aguascalientes'),
+(5, 'Fábrica de Tejido de Punto y Confecciones Ofelia S.A. de C.V.', '4499730249', 'Av. Francisco I. Madero 810, Aguascalientes');
+```
+
+### Supplier Profiles
+
+<ResponseField name="Casimires y Trajes Lucerna (ID: 1)">
+  **Specialty:** Formal wear, suits, and fine fabrics  
+  **Phone:** 449-915-6551  
+  **Location:** Calle Francisco I. Madero 102 A, Aguascalientes  
+  **Products Supplied:** Men's formal wear (Camisa Oxford Slim)
+</ResponseField>
+
+<ResponseField name="Uniformes América (ID: 2)">
+  **Specialty:** Uniforms and standardized clothing  
+  **Phone:** 449-435-7284  
+  **Location:** Av. Convención 1914 Ote. 105-A, Aguascalientes  
+  **Products Supplied:** Casual and uniform items (Pantalón Jean Clásico)
+</ResponseField>
+
+<ResponseField name="La Charrita de Aguascalientes (ID: 3)">
+  **Specialty:** Traditional and formal dresses  
+  **Phone:** 449-311-0929  
+  **Location:** Calle Del Carmen 313, Aguascalientes  
+  **Products Supplied:** Women's formal wear (Vestido de Gala Rojo)
+</ResponseField>
+
+<ResponseField name="Maquilas Textiles Arenas (ID: 4)">
+  **Specialty:** Sportswear manufacturing  
+  **Phone:** 449-299-4799  
+  **Location:** Paseo de la Explanada 145, Aguascalientes  
+  **Products Supplied:** Athletic wear (Playera Deportiva Pro)
+</ResponseField>
+
+<ResponseField name="Fábrica de Tejido de Punto y Confecciones Ofelia S.A. de C.V. (ID: 5)">
+  **Specialty:** Knit fabrics and children's clothing  
+  **Phone:** 449-973-0249  
+  **Location:** Av. Francisco I. Madero 810, Aguascalientes  
+  **Products Supplied:** Children's wear and casual items
+</ResponseField>
+
+## Common Queries
+
+### List All Suppliers with Contact Info
+
+```sql
+SELECT 
+    id_proveedor,
+    nombre,
+    telefono,
+    direccion
+FROM proveedor
+ORDER BY nombre;
+```
+
+### Suppliers with Product Count
+
+```sql
+SELECT 
+    p.id_proveedor,
+    p.nombre,
+    p.telefono,
+    COUNT(DISTINCT r.id_prenda) as productos_suministrados
+FROM proveedor p
+LEFT JOIN registro r ON p.id_proveedor = r.id_proveedor
+GROUP BY p.id_proveedor, p.nombre, p.telefono
+ORDER BY productos_suministrados DESC;
+```
+
+### Products by Supplier
+
+```sql
+SELECT 
+    prov.nombre as proveedor,
+    prov.telefono,
+    pr.nombre as producto,
+    pr.precio,
+    pr.stock_actual,
+    r.fecha_registro
+FROM proveedor prov
+INNER JOIN registro r ON prov.id_proveedor = r.id_proveedor
+INNER JOIN prenda pr ON r.id_prenda = pr.id_prenda
+WHERE prov.id_proveedor = 1
+ORDER BY r.fecha_registro DESC;
+```
+
+### Supplier Performance Report
+
+```sql
+SELECT 
+    prov.nombre as proveedor,
+    COUNT(DISTINCT r.id_prenda) as productos_registrados,
+    SUM(pr.stock_actual) as unidades_en_inventario,
+    SUM(pr.precio * pr.stock_actual) as valor_inventario,
+    MAX(r.fecha_registro) as ultimo_registro
+FROM proveedor prov
+LEFT JOIN registro r ON prov.id_proveedor = r.id_proveedor
+LEFT JOIN prenda pr ON r.id_prenda = pr.id_prenda
+GROUP BY prov.id_proveedor, prov.nombre
+ORDER BY valor_inventario DESC;
+```
+
+### Find Supplier by Phone
+
+```sql
+SELECT 
+    id_proveedor,
+    nombre,
+    direccion
+FROM proveedor
+WHERE telefono = '4499156551';
+```
+
+### Suppliers in Specific Area
+
+```sql
+SELECT 
+    nombre,
+    telefono,
+    direccion
+FROM proveedor
+WHERE direccion LIKE '%Francisco I. Madero%'
+ORDER BY nombre;
+```
+
+### Active Suppliers (with Recent Registrations)
+
+```sql
+SELECT DISTINCT
+    prov.id_proveedor,
+    prov.nombre,
+    prov.telefono,
+    MAX(r.fecha_registro) as ultimo_suministro,
+    COUNT(r.id_registro) as total_registros
+FROM proveedor prov
+INNER JOIN registro r ON prov.id_proveedor = r.id_proveedor
+WHERE r.fecha_registro >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+GROUP BY prov.id_proveedor, prov.nombre, prov.telefono
+ORDER BY ultimo_suministro DESC;
+```
+
+## Business Rules
+
+<Warning>
+  **Unique Phone Numbers:** The `telefono` field has a UNIQUE constraint. Each supplier must have a distinct phone number, preventing duplicate supplier entries.
+</Warning>
+
+<Info>
+  **Optional Contact Info:** While phone and address fields are optional (NULL allowed), it's recommended to collect this information for all active suppliers.
+</Info>
+
+<Warning>
+  **Delete Protection:** Suppliers cannot be deleted if they have products registered in the `registro` table due to foreign key constraint `fk_reg_prov`.
+</Warning>
+
+<Tip>
+  **Geographic Focus:** All sample suppliers are located in Aguascalientes, Mexico, indicating a local supply chain strategy.
+</Tip>
+
+## Data Validation
+
+### Phone Number Format
+
+<Info>
+  **Mexican Phone Format:** Phone numbers are stored as 10-character strings (CHAR(10)) representing Mexican phone numbers:
+  - Format: Area code (3 digits) + local number (7 digits)
+  - Example: `4499156551` = 449 (Aguascalientes) + 9156551
+  - No formatting characters (dashes, spaces, parentheses)
+</Info>
+
+### Address Format
+
+<Tip>
+  **Address Convention:** Addresses follow Mexican format:
+  - Street name and number
+  - City/locality
+  - Example: "Calle Francisco I. Madero 102 A, Aguascalientes"
+</Tip>
+
+## Extension Possibilities
+
+<Tip>
+  **Recommended Enhancements:**
+  - Add `email` field for electronic communication
+  - Add `contacto_nombre` for primary contact person
+  - Add `rfc` for Mexican tax ID (RFC - Registro Federal de Contribuyentes)
+  - Add `tipo_proveedor` to categorize suppliers (manufacturer, distributor, wholesaler)
+  - Add `activo` boolean flag for active/inactive status
+  - Add `dias_credito` for payment terms (net 30, net 60, etc.)
+  - Add `calificacion` for supplier rating/performance
+  - Add `sitio_web` for supplier website URL
+  - Add `created_at` and `updated_at` timestamps
+  - Normalize address into separate fields (calle, numero, colonia, ciudad, estado, codigo_postal)
+</Tip>
+
+## Supply Chain Queries
+
+### Supplier Diversity by Category
+
+```sql
+SELECT 
+    prov.nombre as proveedor,
+    c.nombre as categoria,
+    COUNT(DISTINCT pr.id_prenda) as productos
+FROM proveedor prov
+INNER JOIN registro r ON prov.id_proveedor = r.id_proveedor
+INNER JOIN prenda pr ON r.id_prenda = pr.id_prenda
+INNER JOIN categoria c ON pr.id_categoria = c.id_categoria
+GROUP BY prov.id_proveedor, prov.nombre, c.id_categoria, c.nombre
+ORDER BY prov.nombre, productos DESC;
+```
+
+### Supplier Contact List Export
+
+```sql
+SELECT 
+    nombre as 'Proveedor',
+    CONCAT('(', SUBSTRING(telefono, 1, 3), ') ', 
+           SUBSTRING(telefono, 4, 3), '-', 
+           SUBSTRING(telefono, 7, 4)) as 'Teléfono Formateado',
+    direccion as 'Dirección'
+FROM proveedor
+WHERE telefono IS NOT NULL
+ORDER BY nombre;
+```
+
+## Usage in Application
+
+### Supplier Selection Dropdown
+
+```sql
+SELECT id_proveedor, nombre
+FROM proveedor
+ORDER BY nombre ASC;
+```
+
+### Supplier Detail View
+
+```sql
+SELECT 
+    p.*,
+    COUNT(DISTINCT r.id_prenda) as total_productos,
+    MAX(r.fecha_registro) as ultimo_registro
+FROM proveedor p
+LEFT JOIN registro r ON p.id_proveedor = r.id_proveedor
+WHERE p.id_proveedor = ?
+GROUP BY p.id_proveedor;
+```

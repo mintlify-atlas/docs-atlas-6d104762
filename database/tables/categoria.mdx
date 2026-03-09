@@ -1,0 +1,228 @@
+---
+title: categoria Table
+description: Product category lookup table defining clothing types and departments
+---
+
+## Overview
+
+The `categoria` table serves as a lookup table for product categorization, organizing clothing items into distinct departments. It provides hierarchical organization for the product catalog and enables category-based reporting and filtering.
+
+**Table Name:** `categoria`  
+**Engine:** InnoDB  
+**Character Set:** utf8mb4  
+**Primary Key:** `id_categoria`
+
+## Table Structure
+
+### Column Definitions
+
+<ParamField path="id_categoria" type="int(11)" required>
+  Primary key identifier for the category. Auto-increments on insert.
+</ParamField>
+
+<ParamField path="nombre" type="varchar(50)" required>
+  Category name. Examples: "Caballero", "Dama", "Infantil", "Deportiva", "Accesorios"
+</ParamField>
+
+<ParamField path="descripcion" type="text" default="NULL">
+  Optional detailed description of the category's scope and product types included.
+</ParamField>
+
+## CREATE TABLE Statement
+
+```sql
+CREATE TABLE `categoria` (
+  `id_categoria` int(11) NOT NULL,
+  `nombre` varchar(50) NOT NULL,
+  `descripcion` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `categoria`
+  ADD PRIMARY KEY (`id_categoria`);
+
+ALTER TABLE `categoria`
+  MODIFY `id_categoria` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+```
+
+## Indexes
+
+| Index Name | Type | Columns | Purpose |
+|------------|------|---------|----------|
+| `PRIMARY` | PRIMARY KEY | `id_categoria` | Unique identifier |
+
+## Foreign Key Relationships
+
+### Child Tables (Referencing)
+
+<Card title="prenda" icon="shirt" href="./prenda">
+  **Constraint:** `fk_prenda_cat`  
+  **Relationship:** One category can have many products  
+  Each product (`prenda`) must belong to exactly one category via `prenda.id_categoria`
+</Card>
+
+## Sample Data
+
+```sql
+INSERT INTO `categoria` (`id_categoria`, `nombre`, `descripcion`) VALUES
+(1, 'Caballero', 'Ropa formal, informal, casual y de etiqueta para hombres'),
+(2, 'Dama', 'Vestidos, blusas y tendencias de temporada para mujeres'),
+(3, 'Infantil', 'Prendas cómodas y duraderas para niños de 2 a 12 años'),
+(4, 'Deportiva', 'Ropa técnica de alto rendimiento'),
+(5, 'Accesorios', 'Complementos como cinturones, bufandas y joyería básica');
+```
+
+### Category Breakdown
+
+<ResponseField name="Caballero (1)">
+  **Men's Clothing**  
+  Includes formal wear, casual attire, and dress clothing for men. Examples: dress shirts, suits, jeans, jackets.
+</ResponseField>
+
+<ResponseField name="Dama (2)">
+  **Women's Clothing**  
+  Encompasses dresses, blouses, and seasonal fashion trends for women. Examples: gala dresses, silk blouses, skirts.
+</ResponseField>
+
+<ResponseField name="Infantil (3)">
+  **Children's Clothing**  
+  Comfortable and durable clothing for children aged 2-12 years. Examples: hoodies, thermal pajamas, t-shirts.
+</ResponseField>
+
+<ResponseField name="Deportiva (4)">
+  **Sportswear**  
+  High-performance technical athletic wear. Examples: sports t-shirts, running shorts, yoga sets.
+</ResponseField>
+
+<ResponseField name="Accesorios (5)">
+  **Accessories**  
+  Complementary items including belts, scarves, and basic jewelry. Examples: leather belts, adjustable sports caps.
+</ResponseField>
+
+## Common Queries
+
+### List All Categories with Product Count
+
+```sql
+SELECT 
+    c.id_categoria,
+    c.nombre,
+    c.descripcion,
+    COUNT(p.id_prenda) as total_productos
+FROM categoria c
+LEFT JOIN prenda p ON c.id_categoria = p.id_categoria
+GROUP BY c.id_categoria, c.nombre, c.descripcion
+ORDER BY c.nombre;
+```
+
+### Categories with Total Inventory Value
+
+```sql
+SELECT 
+    c.nombre as categoria,
+    COUNT(DISTINCT p.id_prenda) as productos_unicos,
+    SUM(p.stock_actual) as unidades_totales,
+    SUM(p.precio * p.stock_actual) as valor_inventario,
+    AVG(p.precio) as precio_promedio
+FROM categoria c
+INNER JOIN prenda p ON c.id_categoria = p.id_categoria
+GROUP BY c.id_categoria, c.nombre
+ORDER BY valor_inventario DESC;
+```
+
+### Products by Category with Stock Status
+
+```sql
+SELECT 
+    c.nombre as categoria,
+    p.nombre as producto,
+    p.precio,
+    p.stock_actual,
+    CASE 
+        WHEN p.stock_actual = 0 THEN 'Sin stock'
+        WHEN p.stock_actual < 15 THEN 'Stock bajo'
+        WHEN p.stock_actual < 30 THEN 'Stock medio'
+        ELSE 'Stock alto'
+    END as estado_stock
+FROM categoria c
+INNER JOIN prenda p ON c.id_categoria = p.id_categoria
+WHERE c.id_categoria = 2  -- Dama category
+ORDER BY p.stock_actual ASC;
+```
+
+### Top-Selling Categories (by Stock Movement)
+
+```sql
+SELECT 
+    c.nombre as categoria,
+    COUNT(ms.id_movimiento) as total_movimientos,
+    SUM(CASE WHEN ms.tipo_movimiento = 'salida' THEN ms.cantidad ELSE 0 END) as unidades_vendidas
+FROM categoria c
+INNER JOIN prenda p ON c.id_categoria = p.id_categoria
+INNER JOIN movimiento_stock ms ON p.id_prenda = ms.id_prenda
+WHERE ms.tipo_movimiento = 'salida'
+GROUP BY c.id_categoria, c.nombre
+ORDER BY unidades_vendidas DESC;
+```
+
+## Business Rules
+
+<Info>
+  **Reference Data:** This is a lookup/reference table. Records should rarely be added or modified after initial setup.
+</Info>
+
+<Warning>
+  **Delete Protection:** Categories cannot be deleted if products exist in that category due to foreign key constraint `fk_prenda_cat`.
+</Warning>
+
+<Tip>
+  **Naming Convention:** Category names use Spanish terminology consistent with the target market (Mexico).
+</Tip>
+
+## Usage Patterns
+
+### Navigation Menus
+
+Categories are typically used to build navigation menus in the frontend:
+
+```sql
+SELECT id_categoria, nombre 
+FROM categoria 
+ORDER BY nombre;
+```
+
+### Product Filtering
+
+Categories enable users to filter products by department:
+
+```sql
+SELECT p.id_prenda, p.nombre, p.precio
+FROM prenda p
+WHERE p.id_categoria = ? 
+ORDER BY p.nombre;
+```
+
+### Reporting and Analytics
+
+Categories provide grouping for sales reports and inventory analysis:
+
+```sql
+SELECT 
+    c.nombre,
+    COUNT(*) as total_items,
+    MIN(p.precio) as precio_minimo,
+    MAX(p.precio) as precio_maximo,
+    AVG(p.precio) as precio_promedio
+FROM categoria c
+INNER JOIN prenda p ON c.id_categoria = p.id_categoria
+GROUP BY c.id_categoria, c.nombre;
+```
+
+## Extension Possibilities
+
+<Tip>
+  **Future Enhancements:**
+  - Add `orden_display` field for custom sorting in UI
+  - Add `activo` boolean flag to enable/disable categories
+  - Add `imagen_url` for category thumbnail images
+  - Add `id_categoria_padre` for subcategory hierarchies
+</Tip>

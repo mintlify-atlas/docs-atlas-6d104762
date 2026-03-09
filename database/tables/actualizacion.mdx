@@ -1,0 +1,373 @@
+---
+title: actualizacion Table
+description: Price update history table tracking all price changes with audit trail
+---
+
+## Overview
+
+The `actualizacion` table maintains a complete audit trail of all price changes for products. Each record captures the previous price, new price, timestamp, and the employee who authorized the change. This ensures price transparency and enables historical price analysis.
+
+**Table Name:** `actualizacion`  
+**Engine:** InnoDB  
+**Character Set:** utf8mb4  
+**Primary Key:** `id_actualizacion`
+
+## Table Structure
+
+### Column Definitions
+
+<ParamField path="id_actualizacion" type="int(11)" required>
+  Primary key identifier for the price update. Auto-increments on insert.
+</ParamField>
+
+<ParamField path="fecha" type="datetime" default="current_timestamp()">
+  Timestamp of when the price change occurred. Automatically set to current timestamp on insert.
+</ParamField>
+
+<ParamField path="precio_anterior" type="decimal(10,2)" required>
+  Previous price before the update. Stored in Mexican pesos with 2 decimal precision.
+</ParamField>
+
+<ParamField path="precio_nuevo" type="decimal(10,2)" required>
+  New price after the update. Stored in Mexican pesos with 2 decimal precision.
+</ParamField>
+
+<ParamField path="id_prenda" type="int(11)" required>
+  Foreign key reference to `prenda.id_prenda`. Identifies which product was updated.
+</ParamField>
+
+<ParamField path="id_empleado" type="int(11)" required>
+  Foreign key reference to `empleado.id_empleado`. Records which employee authorized the price change.
+</ParamField>
+
+## CREATE TABLE Statement
+
+```sql
+CREATE TABLE `actualizacion` (
+  `id_actualizacion` int(11) NOT NULL,
+  `fecha` datetime DEFAULT current_timestamp(),
+  `precio_anterior` decimal(10,2) NOT NULL,
+  `precio_nuevo` decimal(10,2) NOT NULL,
+  `id_prenda` int(11) NOT NULL,
+  `id_empleado` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `actualizacion`
+  ADD PRIMARY KEY (`id_actualizacion`),
+  ADD KEY `fk_act_prenda` (`id_prenda`),
+  ADD KEY `fk_act_emp` (`id_empleado`);
+
+ALTER TABLE `actualizacion`
+  MODIFY `id_actualizacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+ALTER TABLE `actualizacion`
+  ADD CONSTRAINT `fk_act_emp` FOREIGN KEY (`id_empleado`) REFERENCES `empleado` (`id_empleado`),
+  ADD CONSTRAINT `fk_act_prenda` FOREIGN KEY (`id_prenda`) REFERENCES `prenda` (`id_prenda`);
+```
+
+## Indexes
+
+| Index Name | Type | Columns | Purpose |
+|------------|------|---------|----------|
+| `PRIMARY` | PRIMARY KEY | `id_actualizacion` | Unique identifier |
+| `fk_act_prenda` | INDEX | `id_prenda` | Foreign key lookup for products |
+| `fk_act_emp` | INDEX | `id_empleado` | Foreign key lookup for employees |
+
+## Foreign Key Relationships
+
+### Parent Tables (Referenced)
+
+<CardGroup cols={2}>
+  <Card title="prenda" icon="shirt" href="./prenda">
+    **Constraint:** `fk_act_prenda`  
+    **Column:** `id_prenda` → `prenda.id_prenda`  
+    Links price update to specific product
+  </Card>
+  
+  <Card title="empleado" icon="user" href="./empleado">
+    **Constraint:** `fk_act_emp`  
+    **Column:** `id_empleado` → `empleado.id_empleado`  
+    Tracks employee who authorized the change
+  </Card>
+</CardGroup>
+
+## Sample Data
+
+```sql
+INSERT INTO `actualizacion` (`id_actualizacion`, `fecha`, `precio_anterior`, `precio_nuevo`, `id_prenda`, `id_empleado`) VALUES
+(1, '2026-02-07 20:24:25', 420.00, 450.00, 1, 1),
+(2, '2026-02-07 20:24:25', 600.00, 650.50, 2, 4),
+(3, '2026-02-07 20:24:25', 1100.00, 1200.00, 3, 1),
+(4, '2026-02-07 20:24:25', 320.00, 350.00, 4, 4),
+(5, '2026-02-07 20:24:25', 380.00, 400.00, 5, 1),
+(6, '2026-02-18 21:55:06', 1200.00, 1350.00, 3, 1);
+```
+
+### Price Update Examples
+
+<ResponseField name="Update 1 - Moderate Increase">
+  **Product:** Camisa Oxford Slim (ID: 1)  
+  **Previous:** $420.00 → **New:** $450.00 MXN  
+  **Change:** +$30.00 (+7.14%)  
+  **Authorized by:** Karina Sánchez (Manager)  
+  **Date:** Feb 7, 2026
+</ResponseField>
+
+<ResponseField name="Update 3 & 6 - Multiple Updates">
+  **Product:** Vestido de Gala Rojo (ID: 3)  
+  **First Update:** $1,100.00 → $1,200.00 (+9.09%)  
+  **Second Update:** $1,200.00 → $1,350.00 (+12.5%)  
+  **Total Change:** $250.00 increase over 11 days  
+  **Both authorized by:** Karina Sánchez (Manager)
+</ResponseField>
+
+<ResponseField name="Update 2 - Precise Pricing">
+  **Product:** Pantalón Jean Clásico (ID: 2)  
+  **Previous:** $600.00 → **New:** $650.50 MXN  
+  **Change:** +$50.50 (+8.42%)  
+  **Authorized by:** Mariana Juárez (Manager)  
+  **Note:** Uses decimal pricing strategy
+</ResponseField>
+
+## Common Queries
+
+### Recent Price Changes
+
+```sql
+SELECT 
+    a.id_actualizacion,
+    a.fecha,
+    p.nombre as producto,
+    a.precio_anterior,
+    a.precio_nuevo,
+    (a.precio_nuevo - a.precio_anterior) as cambio_absoluto,
+    ROUND(((a.precio_nuevo - a.precio_anterior) / a.precio_anterior) * 100, 2) as cambio_porcentaje,
+    e.nombre as autorizado_por
+FROM actualizacion a
+INNER JOIN prenda p ON a.id_prenda = p.id_prenda
+INNER JOIN empleado e ON a.id_empleado = e.id_empleado
+ORDER BY a.fecha DESC
+LIMIT 10;
+```
+
+### Complete Price History for Product
+
+```sql
+SELECT 
+    a.fecha,
+    a.precio_anterior,
+    a.precio_nuevo,
+    (a.precio_nuevo - a.precio_anterior) as cambio,
+    ROUND(((a.precio_nuevo - a.precio_anterior) / a.precio_anterior) * 100, 2) as porcentaje,
+    e.nombre as empleado,
+    e.puesto
+FROM actualizacion a
+INNER JOIN empleado e ON a.id_empleado = e.id_empleado
+WHERE a.id_prenda = 3  -- Vestido de Gala Rojo
+ORDER BY a.fecha ASC;
+```
+
+### Price Update Summary by Employee
+
+```sql
+SELECT 
+    e.nombre as empleado,
+    e.puesto,
+    COUNT(*) as total_actualizaciones,
+    AVG(a.precio_nuevo - a.precio_anterior) as cambio_promedio,
+    MIN(a.fecha) as primera_actualizacion,
+    MAX(a.fecha) as ultima_actualizacion
+FROM actualizacion a
+INNER JOIN empleado e ON a.id_empleado = e.id_empleado
+GROUP BY e.id_empleado, e.nombre, e.puesto
+ORDER BY total_actualizaciones DESC;
+```
+
+### Products with Multiple Price Changes
+
+```sql
+SELECT 
+    p.nombre as producto,
+    COUNT(*) as num_cambios,
+    MIN(a.precio_anterior) as precio_inicial,
+    MAX(a.precio_nuevo) as precio_actual,
+    (MAX(a.precio_nuevo) - MIN(a.precio_anterior)) as cambio_total,
+    ROUND(((MAX(a.precio_nuevo) - MIN(a.precio_anterior)) / MIN(a.precio_anterior)) * 100, 2) as incremento_porcentual
+FROM actualizacion a
+INNER JOIN prenda p ON a.id_prenda = p.id_prenda
+GROUP BY p.id_prenda, p.nombre
+HAVING num_cambios > 1
+ORDER BY num_cambios DESC;
+```
+
+### Price Increases vs Decreases
+
+```sql
+SELECT 
+    CASE 
+        WHEN precio_nuevo > precio_anterior THEN 'Aumento'
+        WHEN precio_nuevo < precio_anterior THEN 'Reducción'
+        ELSE 'Sin cambio'
+    END as tipo_cambio,
+    COUNT(*) as cantidad,
+    AVG(ABS(precio_nuevo - precio_anterior)) as cambio_promedio,
+    AVG(ABS((precio_nuevo - precio_anterior) / precio_anterior) * 100) as porcentaje_promedio
+FROM actualizacion
+GROUP BY tipo_cambio;
+```
+
+### Monthly Price Change Report
+
+```sql
+SELECT 
+    DATE_FORMAT(a.fecha, '%Y-%m') as mes,
+    COUNT(*) as total_cambios,
+    COUNT(DISTINCT a.id_prenda) as productos_afectados,
+    AVG(a.precio_nuevo - a.precio_anterior) as cambio_promedio,
+    SUM(CASE WHEN a.precio_nuevo > a.precio_anterior THEN 1 ELSE 0 END) as aumentos,
+    SUM(CASE WHEN a.precio_nuevo < a.precio_anterior THEN 1 ELSE 0 END) as reducciones
+FROM actualizacion a
+GROUP BY DATE_FORMAT(a.fecha, '%Y-%m')
+ORDER BY mes DESC;
+```
+
+### Price Volatility Analysis
+
+```sql
+SELECT 
+    p.nombre as producto,
+    c.nombre as categoria,
+    COUNT(a.id_actualizacion) as num_cambios,
+    STDDEV(a.precio_nuevo - a.precio_anterior) as volatilidad,
+    MIN(a.fecha) as primer_cambio,
+    MAX(a.fecha) as ultimo_cambio,
+    DATEDIFF(MAX(a.fecha), MIN(a.fecha)) as dias_historial
+FROM actualizacion a
+INNER JOIN prenda p ON a.id_prenda = p.id_prenda
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+GROUP BY p.id_prenda, p.nombre, c.nombre
+ORDER BY volatilidad DESC;
+```
+
+## Business Rules
+
+<Warning>
+  **Immutable Audit Trail:** Price update records should never be modified or deleted. They form a legal audit trail for pricing history.
+</Warning>
+
+<Warning>
+  **Synchronization Required:** When creating an `actualizacion` record, the application must also update the corresponding `prenda.precio` field to the `precio_nuevo` value.
+</Warning>
+
+<Info>
+  **Manager Authorization:** Price updates are typically restricted to managers (`puesto = 'gerente'`). In the sample data, all updates were performed by managers (employees 1 and 4).
+</Info>
+
+<Tip>
+  **Price Validation:** Before inserting a record, validate that `precio_anterior` matches the current `prenda.precio` to prevent data inconsistencies.
+</Tip>
+
+## Price Change Patterns
+
+### Analysis from Sample Data
+
+- **Total Updates:** 6 price changes recorded
+- **Price Increases:** 100% (all changes were increases)
+- **Average Increase:** Approximately 8-12%
+- **Most Updated Product:** Vestido de Gala Rojo (2 updates)
+- **Update Frequency:** Concentrated on Feb 7, 2026 (5 updates) + 1 follow-up on Feb 18
+- **Authorized By:** Primarily Karina Sánchez (manager 1) with 4 updates
+
+## Reporting and Analytics
+
+### Price Trend Over Time
+
+```sql
+SELECT 
+    p.nombre as producto,
+    a.fecha,
+    a.precio_nuevo as precio,
+    ROW_NUMBER() OVER (PARTITION BY p.id_prenda ORDER BY a.fecha) as version
+FROM actualizacion a
+INNER JOIN prenda p ON a.id_prenda = p.id_prenda
+WHERE p.id_prenda = 3
+ORDER BY a.fecha;
+```
+
+### Products Never Updated
+
+```sql
+SELECT 
+    p.id_prenda,
+    p.nombre,
+    p.precio,
+    c.nombre as categoria
+FROM prenda p
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+LEFT JOIN actualizacion a ON p.id_prenda = a.id_prenda
+WHERE a.id_actualizacion IS NULL
+ORDER BY p.precio DESC;
+```
+
+### Average Price by Category with Update Frequency
+
+```sql
+SELECT 
+    c.nombre as categoria,
+    COUNT(DISTINCT p.id_prenda) as total_productos,
+    COUNT(a.id_actualizacion) as total_actualizaciones,
+    AVG(p.precio) as precio_promedio_actual,
+    ROUND(COUNT(a.id_actualizacion) / COUNT(DISTINCT p.id_prenda), 2) as actualizaciones_por_producto
+FROM categoria c
+INNER JOIN prenda p ON c.id_categoria = p.id_categoria
+LEFT JOIN actualizacion a ON p.id_prenda = a.id_prenda
+GROUP BY c.id_categoria, c.nombre
+ORDER BY actualizaciones_por_producto DESC;
+```
+
+## Extension Possibilities
+
+<Tip>
+  **Recommended Enhancements:**
+  - Add `motivo` VARCHAR(100) to explain reason for price change (cost increase, promotion, market adjustment)
+  - Add `tipo_cambio` ENUM('aumento', 'reduccion', 'ajuste') for explicit categorization
+  - Add `aprobado_por` INT for manager approval if initiated by staff
+  - Add `notas` TEXT for additional context or justification
+  - Add `vigencia_desde` and `vigencia_hasta` DATETIME for scheduled pricing
+  - Add `margen_anterior` and `margen_nuevo` DECIMAL to track profit margins
+  - Add `costo_unitario` DECIMAL to track cost changes separately from pricing
+  - Create trigger to automatically update `prenda.precio` on insert
+  - Add `documento_referencia` VARCHAR(50) for linking to approval documents
+</Tip>
+
+## Compliance and Auditing
+
+<Info>
+  **Legal Requirements:** In retail environments, maintaining price history may be required for:
+  - Tax audits
+  - Consumer protection regulations
+  - Financial reporting
+  - Fraud prevention
+</Info>
+
+### Audit Report Query
+
+```sql
+SELECT 
+    a.id_actualizacion,
+    a.fecha as fecha_cambio,
+    p.nombre as producto,
+    c.nombre as categoria,
+    a.precio_anterior,
+    a.precio_nuevo,
+    (a.precio_nuevo - a.precio_anterior) as diferencia,
+    e.nombre as autorizado_por,
+    e.puesto as cargo,
+    CONCAT('$', FORMAT(a.precio_anterior, 2), ' → $', FORMAT(a.precio_nuevo, 2)) as resumen
+FROM actualizacion a
+INNER JOIN prenda p ON a.id_prenda = p.id_prenda
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+INNER JOIN empleado e ON a.id_empleado = e.id_empleado
+WHERE a.fecha BETWEEN '2026-01-01' AND '2026-12-31'
+ORDER BY a.fecha DESC, a.id_actualizacion;
+```

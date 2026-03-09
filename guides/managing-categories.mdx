@@ -1,0 +1,366 @@
+---
+title: 'Managing Categories'
+description: 'Create, edit, and organize product categories in TiendaRopa'
+icon: 'folder-tree'
+---
+
+## Overview
+
+Categories help organize your products into logical groups like "Camisas" (Shirts), "Pantalones" (Pants), "Accesorios" (Accessories), etc. The category management interface provides a streamlined workflow with a side-by-side form and table layout.
+
+<Note>
+  Categories are required when creating products. Set up your category structure before adding inventory items.
+</Note>
+
+## Accessing Category Management
+
+Navigate to the **Categorías** page (`categorias.php`) from the main navigation menu.
+
+### Interface Layout
+
+The page is divided into two sections:
+
+- **Left Panel (4 columns):** Quick-add form for creating new categories
+- **Right Panel (8 columns):** Table displaying all existing categories
+
+## Creating a New Category
+
+<Steps>
+  <Step title="Locate the creation form">
+    On the left side of the page, you'll see a card titled **"Nueva Categoría"** with a dark header.
+  </Step>
+  
+  <Step title="Enter category name">
+    In the **"Nombre de la Categoría"** field, enter a descriptive category name.
+    
+    **Examples:**
+    - Accesorios
+    - Camisas
+    - Pantalones
+    - Vestidos
+    - Calzado
+    - Ropa Deportiva
+    
+    <Tip>
+      Use clear, singular or plural names based on your business conventions. Be consistent across all categories.
+    </Tip>
+  </Step>
+  
+  <Step title="Add a description (optional)">
+    In the **"Descripción"** field (textarea), add additional details about the category.
+    
+    **Examples:**
+    - "Prendas superiores formales e informales"
+    - "Incluye corbatas, cinturones, bufandas"
+    - "Pantalones casuales y de vestir"
+    
+    <Note>
+      The description field is optional but recommended for clarity, especially if multiple staff members manage inventory.
+    </Note>
+  </Step>
+  
+  <Step title="Save the category">
+    Click the **"Guardar Categoría"** button (full-width blue button) to create the category.
+  </Step>
+  
+  <Step title="Verify creation">
+    After successful creation:
+    - The page reloads with `?msg=creada` in the URL
+    - The new category appears in the table on the right
+    - The form clears, ready for the next entry
+  </Step>
+</Steps>
+
+### Database Operation
+
+```sql
+INSERT INTO categoria (nombre, descripcion) VALUES (?, ?)
+```
+
+## Viewing Categories
+
+The categories table on the right side displays:
+
+| Column | Description |
+|--------|-------------|
+| **ID** | Auto-generated unique identifier |
+| **Nombre** | Category name (bold text) |
+| **Descripción** | Category description (smaller text) |
+| **Acción** | Edit button (yellow) |
+
+<Tip>
+  Categories are displayed in the order they exist in the database. Plan your category structure before creating many items.
+</Tip>
+
+## Editing a Category
+
+Category editing uses a modal dialog for a streamlined experience without leaving the page.
+
+<Steps>
+  <Step title="Click the Edit button">
+    In the categories table, locate the category you want to modify and click its yellow **"Editar"** button.
+  </Step>
+  
+  <Step title="Modal opens">
+    A modal dialog titled **"Modificar Categoría"** appears, pre-populated with the current category data:
+    - Hidden field: `id_categoria` (category ID)
+    - **Nombre** field: Current category name
+    - **Descripción** field: Current description
+  </Step>
+  
+  <Step title="Update the fields">
+    Modify the name and/or description as needed:
+    
+    **Nombre** (required)
+    - Change the category name
+    - Cannot be left empty
+    
+    **Descripción** (optional)
+    - Update or add additional context
+    - Supports multi-line text (4 rows)
+  </Step>
+  
+  <Step title="Save changes">
+    Click **"Actualizar Cambios"** (blue button) to save, or **"Cerrar"** (gray button) to cancel without saving.
+  </Step>
+  
+  <Step title="Verify update">
+    After saving:
+    - The modal closes automatically
+    - The page reloads with `?msg=actualizada`
+    - The updated category appears in the table with new values
+  </Step>
+</Steps>
+
+### Modal Implementation Details
+
+The edit modal uses JavaScript to populate form fields:
+
+```javascript
+function abrirEditar(id, nombre, descripcion) {
+    document.getElementById('edit_id').value = id;
+    document.getElementById('edit_nombre').value = nombre;
+    document.getElementById('edit_descripcion').value = descripcion;
+    
+    var myModal = new bootstrap.Modal(document.getElementById('modalEditarCat'));
+    myModal.show();
+}
+```
+
+<Warning>
+  Special characters in descriptions are escaped using `addslashes()` in PHP to prevent JavaScript injection issues.
+</Warning>
+
+## Category Limitations and Constraints
+
+### Cannot Delete Categories
+
+<Warning>
+  The categories management interface does **not** include a delete function. This is intentional to protect data integrity.
+</Warning>
+
+Categories cannot be deleted through the UI because:
+
+1. **Foreign Key Constraints**: Products reference categories via `id_categoria`
+2. **Data Integrity**: Deleting a category would orphan all associated products
+3. **Historical Records**: Maintaining category history is important for reporting
+
+### Workaround for Unused Categories
+
+If you need to "retire" a category:
+
+<Steps>
+  <Step title="Edit the category name">
+    Add a prefix like `[INACTIVE]` or `[DEPRECATED]` to the category name.
+    
+    Example: `[INACTIVE] Vintage Collection`
+  </Step>
+  
+  <Step title="Update the description">
+    Add a note explaining why it's inactive and when it was retired.
+    
+    Example: "Category retired on 2026-03-01. Products moved to 'Camisas' category."
+  </Step>
+  
+  <Step title="Reassign products">
+    Go to each product in this category and change its category to an active one.
+  </Step>
+</Steps>
+
+### Database-Level Deletion
+
+If you absolutely must delete a category:
+
+<Warning>
+  This requires database access and can break referential integrity if not done carefully.
+</Warning>
+
+```sql
+-- First, check if any products use this category
+SELECT COUNT(*) FROM prenda WHERE id_categoria = X;
+
+-- If count is 0, safe to delete
+DELETE FROM categoria WHERE id_categoria = X;
+
+-- If count > 0, reassign products first
+UPDATE prenda SET id_categoria = Y WHERE id_categoria = X;
+DELETE FROM categoria WHERE id_categoria = X;
+```
+
+<Note>
+  Contact your database administrator or developer to perform database-level deletions.
+</Note>
+
+## Category Naming Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Be Consistent" icon="arrows-left-right">
+    Use either singular ("Camisa") or plural ("Camisas") forms consistently across all categories.
+  </Card>
+  
+  <Card title="Use Clear Names" icon="eye">
+    Choose names that are immediately understandable to all staff members.
+  </Card>
+  
+  <Card title="Avoid Overlaps" icon="circle-xmark">
+    Don't create categories with overlapping purposes (e.g., "Ropa Casual" and "Casual Wear").
+  </Card>
+  
+  <Card title="Think Hierarchically" icon="sitemap">
+    Even though the system is flat, plan categories that could logically group into parent categories later.
+  </Card>
+</CardGroup>
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Setting up initial category structure">
+    When first configuring TiendaRopa:
+    
+    1. List all product types you sell
+    2. Group similar items into logical categories
+    3. Aim for 5-15 categories (not too few, not too many)
+    4. Create categories before adding products
+    
+    **Example starter set:**
+    - Camisas (Shirts)
+    - Pantalones (Pants)
+    - Vestidos (Dresses)
+    - Ropa Interior (Underwear)
+    - Accesorios (Accessories)
+    - Calzado (Footwear)
+  </Accordion>
+  
+  <Accordion title="Renaming a category used by many products">
+    If you need to rename a category that's already assigned to products:
+    
+    1. Click **Editar** on the category
+    2. Update the name in the modal
+    3. Click **Actualizar Cambios**
+    4. All products automatically reflect the new category name
+    
+    <Tip>
+      Category name changes propagate immediately to all products via the foreign key relationship.
+    </Tip>
+  </Accordion>
+  
+  <Accordion title="Organizing by season or collection">
+    You can create seasonal categories:
+    
+    - "Primavera 2026"
+    - "Colección Verano"
+    - "Liquidación Invierno"
+    
+    <Warning>
+      Be cautious with time-based categories—products will need to be recategorized frequently.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Handling subcategories">
+    The system doesn't support hierarchical categories natively, but you can simulate them with naming:
+    
+    - "Ropa - Camisas"
+    - "Ropa - Pantalones"
+    - "Accesorios - Cinturones"
+    - "Accesorios - Corbatas"
+    
+    This allows grouping in alphabetical sort order.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Category name appears but description is blank">
+    This is normal behavior:
+    - The description field is optional
+    - Empty descriptions display as blank in the table
+    - Edit the category to add a description
+  </Accordion>
+  
+  <Accordion title="Edit modal shows old data after updating">
+    This is a browser caching issue:
+    - The page reloads after each update
+    - If you see stale data, do a hard refresh (Ctrl+F5 or Cmd+Shift+R)
+    - Check that the URL contains `?msg=actualizada`
+  </Accordion>
+  
+  <Accordion title="Cannot save category - no error message">
+    Possible causes:
+    - **Empty name field**: The nombre field is required
+    - **Database connection issue**: Check database connectivity
+    - **Character encoding problems**: Ensure UTF-8 encoding for special characters
+    
+    Check the browser console (F12) for JavaScript errors.
+  </Accordion>
+  
+  <Accordion title="Special characters (accents, ñ) not displaying correctly">
+    Ensure proper character encoding:
+    - Page uses `<meta charset="UTF-8">`
+    - Database tables use `utf8mb4` collation
+    - PHP connection uses UTF-8 charset
+    
+    If issues persist, contact your database administrator.
+  </Accordion>
+  
+  <Accordion title="Edit button opens modal but fields are empty">
+    This indicates a JavaScript error:
+    - Check browser console for errors
+    - Verify special characters in data are properly escaped
+    - Ensure Bootstrap JS is loaded correctly
+    
+    The issue often relates to unescaped quotes in descriptions.
+  </Accordion>
+</AccordionGroup>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Managing Products" icon="box" href="/guides/managing-products">
+    Learn how to create products and assign them to categories
+  </Card>
+  
+  <Card title="Database Schema" icon="database" href="/database/overview">
+    Understand the categoria table structure and relationships
+  </Card>
+</CardGroup>
+
+## Integration with Product Management
+
+Categories integrate with products through the `id_categoria` foreign key:
+
+```sql
+SELECT p.*, c.nombre as cat_nom 
+FROM prenda p
+JOIN categoria c ON p.id_categoria = c.id_categoria
+```
+
+When you:
+- **Create a product**: You select from existing categories
+- **Edit a product**: You can change its category
+- **View inventory**: Products display with their category name
+- **Search products**: You can search by category name
+
+<Tip>
+  Plan your category structure carefully before adding many products. Reorganizing categories later requires updating individual products.
+</Tip>

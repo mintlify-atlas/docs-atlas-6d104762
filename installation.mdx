@@ -1,0 +1,217 @@
+---
+title: 'Installation'
+description: 'Step-by-step guide to install and configure TiendaRopa on your local development environment'
+---
+
+This guide will walk you through installing TiendaRopa, a complete CRUD application for managing a clothing store inventory built with PHP and MySQL.
+
+## Prerequisites
+
+Before installing TiendaRopa, ensure your system meets the following requirements:
+
+<CardGroup cols={2}>
+  <Card title="PHP 8.2+" icon="php">
+    The application was developed with PHP 8.2.12
+  </Card>
+  <Card title="MySQL/MariaDB" icon="database">
+    Tested with MariaDB 10.4.32
+  </Card>
+  <Card title="Web Server" icon="server">
+    Apache (included in XAMPP)
+  </Card>
+  <Card title="phpMyAdmin" icon="table">
+    Version 5.2.1 or higher recommended
+  </Card>
+</CardGroup>
+
+<Note>
+  The easiest way to get all prerequisites is to install **XAMPP**, which includes Apache, PHP, MySQL, and phpMyAdmin in a single package.
+</Note>
+
+## Step 1: Install XAMPP
+
+<Steps>
+  <Step title="Download XAMPP">
+    Download XAMPP for your operating system from the [official Apache Friends website](https://www.apachefriends.org/).
+    
+    Make sure to download a version that includes PHP 8.2 or higher.
+  </Step>
+  
+  <Step title="Run the Installer">
+    Execute the installer and follow the setup wizard. Select at minimum:
+    
+    - Apache
+    - MySQL
+    - PHP
+    - phpMyAdmin
+  </Step>
+  
+  <Step title="Start Services">
+    Open the XAMPP Control Panel and start the **Apache** and **MySQL** services.
+    
+    <Check>You should see green highlighting indicating the services are running</Check>
+  </Step>
+  
+  <Step title="Verify Installation">
+    Open your browser and navigate to:
+    
+    ```
+    http://localhost
+    ```
+    
+    You should see the XAMPP welcome page.
+  </Step>
+</Steps>
+
+## Step 2: Download TiendaRopa
+
+<Tabs>
+  <Tab title="Clone with Git">
+    If you have Git installed, clone the repository directly into your web root:
+    
+    ```bash
+    cd C:\xampp\htdocs  # Windows
+    # or
+    cd /Applications/XAMPP/htdocs  # macOS
+    # or
+    cd /opt/lampp/htdocs  # Linux
+    
+    git clone <repository-url> tienda_ropa
+    ```
+  </Tab>
+  
+  <Tab title="Download ZIP">
+    1. Download the project as a ZIP file
+    2. Extract the contents
+    3. Copy the `tienda_ropa` folder to your XAMPP `htdocs` directory:
+       - **Windows**: `C:\xampp\htdocs\`
+       - **macOS**: `/Applications/XAMPP/htdocs/`
+       - **Linux**: `/opt/lampp/htdocs/`
+  </Tab>
+</Tabs>
+
+<Warning>
+  The folder structure should be `htdocs/tienda_ropa/` with all PHP files directly inside the `tienda_ropa` folder.
+</Warning>
+
+## Step 3: Verify File Structure
+
+Ensure your installation has the following structure:
+
+```
+htdocs/
+└── tienda_ropa/
+    ├── db.php
+    ├── index.php
+    ├── header.php
+    ├── crear.php
+    ├── editar.php
+    ├── eliminar.php
+    ├── categorias.php
+    ├── colores.php
+    ├── tallas.php
+    ├── empleados.php
+    ├── proveedores.php
+    ├── movimientos.php
+    ├── actualizaciones.php
+    └── registros.php
+```
+
+## Step 4: Initial Configuration
+
+Before accessing the application, you need to set up the database. The database connection is configured in `db.php`:
+
+```php tienda_ropa/db.php
+<?php
+$host = "localhost";
+$db_name = "tienda_ropa";
+$username = "root"; // Usuario por defecto en phpMyAdmin
+$password = "";     // Contraseña por defecto vacía en XAMPP
+
+try {
+    $conn = new PDO("mysql:host=$host;dbname=$db_name;charset=utf8", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    echo "Error de conexión: " . $e->getMessage();
+}
+?>
+```
+
+<Info>
+  The default XAMPP MySQL configuration uses:
+  - **Host**: `localhost`
+  - **Username**: `root`
+  - **Password**: (empty)
+  
+  You typically don't need to modify `db.php` unless you've customized your MySQL installation.
+</Info>
+
+## Step 5: Next Steps
+
+Now that the application files are in place, you need to:
+
+1. **Import the database schema** - Create the `tienda_ropa` database and all required tables
+2. **Verify the connection** - Ensure the application can connect to your database
+3. **Access the application** - Start using TiendaRopa
+
+Proceed to the [Database Setup](/database-setup) guide to complete the installation.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Apache won't start - Port 80 already in use">
+    Another application (like Skype or IIS) may be using port 80.
+    
+    **Solution**: Edit `httpd.conf` in XAMPP and change the port:
+    ```apache
+    Listen 8080
+    ServerName localhost:8080
+    ```
+    
+    Then access the application at `http://localhost:8080`
+  </Accordion>
+  
+  <Accordion title="MySQL won't start - Port 3306 already in use">
+    Another MySQL service may be running.
+    
+    **Solution**: Stop other MySQL services or change the port in XAMPP's `my.ini` configuration file.
+  </Accordion>
+  
+  <Accordion title="Error: Call to undefined function PDO()">
+    PHP PDO extension is not enabled.
+    
+    **Solution**: Edit `php.ini` and uncomment:
+    ```ini
+    extension=pdo_mysql
+    ```
+    
+    Restart Apache after making changes.
+  </Accordion>
+  
+  <Accordion title="Blank page when accessing localhost/tienda_ropa">
+    Check if:
+    1. Apache is running in XAMPP Control Panel
+    2. Files are in the correct `htdocs/tienda_ropa/` directory
+    3. PHP error reporting is enabled in `php.ini`
+    
+    Enable error display temporarily:
+    ```php
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## System Requirements Summary
+
+| Component | Minimum Version | Recommended |
+|-----------|----------------|-------------|
+| PHP | 8.0 | 8.2.12+ |
+| MySQL/MariaDB | 5.7 / 10.2 | 8.0 / 10.4.32+ |
+| Apache | 2.4 | 2.4.54+ |
+| phpMyAdmin | 5.0 | 5.2.1+ |
+| Web Browser | Any modern browser | Chrome, Firefox, Edge |
+
+<Card title="Ready to Continue?" icon="arrow-right" href="/database-setup">
+  Proceed to Database Setup to create and configure the database
+</Card>

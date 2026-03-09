@@ -1,0 +1,549 @@
+---
+title: 'Managing Suppliers'
+description: 'Create, edit, and manage supplier contacts and information in TiendaRopa'
+icon: 'truck'
+---
+
+## Overview
+
+The supplier management system maintains contact information for vendors who provide merchandise to your store. Supplier records are linked to merchandise reception records, creating a complete audit trail of where inventory originates.
+
+<Note>
+  Suppliers are also called "proveedores" in the system. Each supplier record includes company name, phone number, and address.
+</Note>
+
+## Why Supplier Records Matter
+
+Supplier tracking provides:
+
+- **Supply chain visibility**: Know which vendors supply which products
+- **Reception auditing**: Track merchandise receptions by supplier
+- **Contact management**: Quick access to phone numbers and addresses for reordering
+- **Quality tracking**: Identify patterns if certain suppliers have recurring issues
+- **Business relationships**: Maintain historical records of all vendor partnerships
+
+<Warning>
+  Suppliers with merchandise reception history cannot be deleted due to foreign key constraints that preserve data integrity.
+</Warning>
+
+## Accessing Supplier Management
+
+Navigate to the **Proveedores** page (`proveedores.php`) from the main navigation menu.
+
+### Interface Layout
+
+The page uses a split-screen layout:
+
+- **Left Panel (4 columns):** Quick-add form for creating new suppliers
+- **Right Panel (8 columns):** Table displaying all supplier records with edit and delete actions
+
+## Creating a New Supplier
+
+<Steps>
+  <Step title="Locate the creation form">
+    On the left side of the page, find the **"Nuevo Proveedor"** card with a dark header.
+  </Step>
+  
+  <Step title="Enter supplier name">
+    In the **"Nombre / Empresa"** field, enter the supplier or company name.
+    
+    **Examples:**
+    - Textiles del Norte S.A.
+    - Distribuidora García
+    - Importaciones Rodríguez Hnos.
+    - ABC Fashion Suppliers
+    - María Elena - Mayorista
+    
+    <Tip>
+      Include legal entity suffixes (S.A., S.R.L., etc.) for proper identification.
+    </Tip>
+  </Step>
+  
+  <Step title="Enter phone number (optional)">
+    In the **"Teléfono (10 dígitos)"** field, enter a 10-digit phone number.
+    
+    **Format**: Numbers only, no spaces or dashes
+    - ✅ Correct: `5551234567`
+    - ❌ Incorrect: `555-123-4567` or `555 123 4567`
+    
+    **Field constraints:**
+    - Maximum length: 10 characters (enforced by `maxlength="10"`)
+    - Optional field (can be left empty)
+    
+    <Note>
+      If the supplier has multiple contact numbers, choose the primary contact number. Use the address field for additional contact info.
+    </Note>
+  </Step>
+  
+  <Step title="Enter address (optional)">
+    In the **"Dirección"** textarea (2 rows), enter the supplier's address.
+    
+    **Examples:**
+    - Av. Reforma 123, Col. Centro, CDMX
+    - Calle Principal 45, Guadalajara, Jalisco
+    - Km 15 Carretera a León, Aguascalientes
+    
+    **You can include:**
+    - Street address
+    - City and state
+    - Additional contact information
+    - Email addresses
+    - Alternative phone numbers
+    
+    <Tip>
+      Use the address field flexibly for any supplier contact details that don't fit in the phone number field.
+    </Tip>
+  </Step>
+  
+  <Step title="Save the supplier record">
+    Click the **"Guardar Proveedor"** button (full-width blue button) to create the supplier.
+  </Step>
+  
+  <Step title="Verify creation">
+    After successful creation:
+    - Page reloads with `?msg=creado` in the URL
+    - New supplier appears in the table on the right
+    - Form clears and is ready for the next entry
+    - Supplier is now available in merchandise reception dropdowns
+  </Step>
+</Steps>
+
+### Database Operation
+
+```sql
+INSERT INTO proveedor (nombre, telefono, direccion) VALUES (?, ?, ?)
+```
+
+The `id_proveedor` is auto-generated as the primary key.
+
+### Error Handling
+
+If creation fails, an error message displays:
+
+```php
+<div class="alert alert-danger alert-dismissible fade show">
+    Error al crear: [error message]
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+```
+
+## Viewing Suppliers
+
+The supplier table displays:
+
+| Column | Description |
+|--------|-------------|
+| **ID** | Auto-generated unique identifier |
+| **Proveedor** | Company name (bold) with address below (small, muted text) |
+| **Contacto** | Phone number |
+| **Acciones** | Edit (yellow) and Delete (red) buttons in a button group |
+
+<Tip>
+  The table shows the address directly under the company name for quick reference without cluttering the table.
+</Tip>
+
+## Editing a Supplier
+
+Supplier editing uses a modal dialog for a streamlined update experience.
+
+<Steps>
+  <Step title="Click Edit button">
+    In the supplier table, locate the supplier you want to modify and click the yellow **"Editar"** button.
+  </Step>
+  
+  <Step title="Modal opens with current data">
+    The **"Modificar Proveedor"** modal appears with pre-populated fields:
+    - Hidden field: `id_proveedor`
+    - **Nombre / Empresa**: Current supplier name
+    - **Teléfono**: Current phone number (10 character max)
+    - **Dirección**: Current address (3-row textarea)
+  </Step>
+  
+  <Step title="Update supplier information">
+    Modify any fields as needed:
+    
+    **Nombre / Empresa** (required)
+    - Correct spelling or naming errors
+    - Update to reflect company rebranding
+    - Add or remove legal entity suffixes
+    
+    **Teléfono** (optional, max 10 characters)
+    - Update primary contact number
+    - Can be left blank if unknown
+    - Only numbers, no formatting characters
+    
+    **Dirección** (optional)
+    - Update physical address
+    - Add email addresses or additional contacts
+    - Correct location information
+  </Step>
+  
+  <Step title="Save changes">
+    Click **"Actualizar Cambios"** (blue button) to save, or **"Cerrar"** (gray button) to cancel.
+  </Step>
+  
+  <Step title="Verify update">
+    After saving:
+    - Modal closes automatically
+    - Page reloads with `?msg=actualizado`
+    - Updated information appears in the table
+    - Changes are immediately reflected in reception dropdowns
+  </Step>
+</Steps>
+
+### Modal JavaScript Implementation
+
+The modal is populated using JavaScript with proper escaping:
+
+```javascript
+function abrirEditar(id, nombre, telefono, direccion) {
+    document.getElementById('edit_id').value = id;
+    document.getElementById('edit_nombre').value = nombre;
+    document.getElementById('edit_telefono').value = telefono;
+    document.getElementById('edit_direccion').value = direccion;
+    
+    var myModal = new bootstrap.Modal(document.getElementById('modalEditarProv'));
+    myModal.show();
+}
+```
+
+<Warning>
+  Special characters in supplier names and addresses are escaped using `addslashes()` to prevent JavaScript injection issues.
+</Warning>
+
+## Deleting a Supplier
+
+<Warning>
+  Supplier deletion is permanent and cannot be undone. Deleted supplier records cannot be recovered.
+</Warning>
+
+<Steps>
+  <Step title="Locate the supplier">
+    Find the supplier record you want to delete in the table.
+  </Step>
+  
+  <Step title="Click Delete button">
+    Click the red **"Eliminar"** button in the Acciones column.
+  </Step>
+  
+  <Step title="Confirm deletion">
+    A browser confirmation dialog appears:
+    > "¿Estás seguro de eliminar este proveedor?"
+    
+    - Click **OK** to proceed with deletion
+    - Click **Cancel** to abort
+  </Step>
+  
+  <Step title="Handle result">
+    **Success Case:**
+    - Page reloads with `?msg=eliminado`
+    - Supplier removed from the table
+    - Supplier no longer appears in reception dropdowns
+    
+    **Failure Case:**
+    - Error alert displayed:
+      > "No se puede eliminar este proveedor porque tiene registros de mercancía asociados."
+    - Supplier remains in the system
+    - Database referential integrity preserved
+  </Step>
+</Steps>
+
+### Why Deletion Fails
+
+Suppliers cannot be deleted if they have associated records in the `registro` table (merchandise receptions).
+
+This is enforced by a foreign key constraint:
+
+```sql
+ALTER TABLE registro 
+ADD CONSTRAINT fk_registro_proveedor 
+FOREIGN KEY (id_proveedor) REFERENCES proveedor(id_proveedor);
+```
+
+<Tip>
+  **Alternative to deletion**: Instead of deleting suppliers with history, update their name to indicate inactive status:
+  
+  `[INACTIVE] Textiles del Norte S.A.`
+  
+  This preserves audit trails while clearly marking the supplier as no longer active.
+</Tip>
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Setting up initial supplier database">
+    When first configuring TiendaRopa:
+    
+    1. **Gather supplier information**: Collect names, phone numbers, and addresses from existing records
+    2. **Prioritize active suppliers**: Enter currently active vendors first
+    3. **Use consistent naming**: Decide on a naming convention (e.g., always include legal entity suffix)
+    4. **Verify contact info**: Confirm phone numbers and addresses are current before entering
+    5. **Test in receptions**: Create a test merchandise reception to ensure suppliers appear correctly
+    
+    <Tip>
+      Create 3-5 test suppliers initially to verify the system works correctly before bulk data entry.
+    </Tip>
+  </Accordion>
+  
+  <Accordion title="Updating supplier contact information">
+    When a supplier moves or changes phone numbers:
+    
+    1. Click **Editar** on the supplier's row
+    2. Update the **Teléfono** and/or **Dirección** fields
+    3. Click **Actualizar Cambios**
+    4. Verify the changes appear in the table
+    
+    <Note>
+      Contact information updates do not affect historical reception records—those maintain the information as it was at the time of reception.
+    </Note>
+  </Accordion>
+  
+  <Accordion title="Handling supplier name changes (rebrand or acquisition)">
+    If a supplier changes their company name:
+    
+    **Option 1: Update the existing record**
+    1. Edit the supplier
+    2. Change **Nombre / Empresa** to the new name
+    3. Add a note in **Dirección** about the name change:
+       `Formerly known as [Old Name] - Changed March 2026`
+    
+    **Option 2: Create a new supplier and mark the old one inactive**
+    1. Create a new supplier with the new name
+    2. Edit the old supplier to add `[INACTIVE - REBRANDED]` prefix
+    3. Add a reference in the address field:
+       `Now operating as [New Name]`
+    
+    Choose Option 1 if you want unified reporting, Option 2 if you want to track the transition period separately.
+  </Accordion>
+  
+  <Accordion title="Managing suppliers without full contact info">
+    Sometimes you receive merchandise from suppliers whose complete information you don't have:
+    
+    1. Create the supplier with the information you do have
+    2. Use placeholder text in missing fields:
+       - **Teléfono**: Leave blank or enter `0000000000`
+       - **Dirección**: Enter `Información pendiente` or `TBD`
+    3. Update the record later when you obtain complete information
+    
+    <Warning>
+      Don't skip creating the supplier record. Having incomplete data is better than having no audit trail.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Consolidating duplicate supplier entries">
+    If you accidentally created duplicate suppliers:
+    
+    1. **Identify the duplicates**: Look for similar names in the table
+    2. **Choose the primary record**: Select which record to keep (usually the one with more complete info)
+    3. **Update reception records**: This requires database access
+       ```sql
+       -- Update all receptions from duplicate to primary
+       UPDATE registro 
+       SET id_proveedor = [primary_id] 
+       WHERE id_proveedor = [duplicate_id];
+       ```
+    4. **Delete the duplicate**: Once no receptions reference it, you can delete it
+    
+    <Note>
+      Contact your database administrator or developer to perform the SQL update safely.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot delete supplier - has associated records">
+    **Error message:**
+    > "No se puede eliminar este proveedor porque tiene registros de mercancía asociados."
+    
+    **Why it happens:**
+    The supplier has merchandise reception records in the `registro` table.
+    
+    **Solution options:**
+    1. **Mark as inactive**: Edit the name to `[INACTIVE] Supplier Name`
+    2. **Keep the record**: Retain for historical reference
+    3. **Database-level deletion** (advanced):
+       ```sql
+       -- Check which receptions reference this supplier
+       SELECT * FROM registro WHERE id_proveedor = X;
+       
+       -- Option A: Reassign receptions to another supplier
+       UPDATE registro SET id_proveedor = Y WHERE id_proveedor = X;
+       
+       -- Option B: Delete reception records (loses history!)
+       DELETE FROM registro WHERE id_proveedor = X;
+       
+       -- Then delete supplier
+       DELETE FROM proveedor WHERE id_proveedor = X;
+       ```
+    
+    <Warning>
+      Database-level deletion requires careful consideration and should only be done by authorized personnel.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Phone number field won't accept full number">
+    The phone field has `maxlength="10"` enforced:
+    
+    **If your phone numbers need more digits:**
+    - For international numbers, use the address field
+    - For extensions, add to address: `Tel: 5551234567 Ext. 123`
+    - Contact your developer to increase the field length if needed
+    
+    **If the number has fewer than 10 digits:**
+    - Pad with zeros: `555123` → `0000555123`
+    - Or leave the field blank and put the number in the address field
+  </Accordion>
+  
+  <Accordion title="Supplier doesn't appear in reception dropdowns">
+    If a newly created supplier isn't available when registering merchandise receptions:
+    
+    1. **Verify creation**: Check that the supplier appears in the Proveedores table
+    2. **Refresh the reception page**: Dropdowns are populated on page load
+    3. **Check database**: Query the `proveedor` table to confirm the record exists
+    4. **Clear browser cache**: Try a hard refresh (Ctrl+F5 or Cmd+Shift+R)
+    5. **Check for JavaScript errors**: Open browser console (F12) and look for errors
+  </Accordion>
+  
+  <Accordion title="Edit modal shows wrong supplier data">
+    This usually indicates a JavaScript issue with special characters:
+    
+    1. Open browser console (F12)
+    2. Look for JavaScript errors when clicking Editar
+    3. Check if the supplier name or address contains special characters:
+       - Quotes (`"` or `'`)
+       - Backslashes (`\`)
+       - Line breaks
+    
+    **Workaround:**
+    - Edit the supplier by recreating it with a simpler name
+    - Contact your developer to improve character escaping
+    
+    **Technical note:** The issue is usually in the `addslashes()` PHP function not handling certain characters correctly.
+  </Accordion>
+  
+  <Accordion title="Cannot save supplier - error message displayed">
+    If you see "Error al crear: [message]" or "Error al actualizar: [message]":
+    
+    **Common causes:**
+    1. **Database connection failure**: Check that the database server is running
+    2. **Character encoding issues**: Ensure special characters (á, é, í, ó, ú, ñ) are handled correctly
+    3. **Field validation**: Verify nombre is not empty (it's required)
+    4. **Constraint violations**: Check for unique constraint violations if applicable
+    
+    **Debugging steps:**
+    1. Try creating a supplier with simple ASCII characters: "Test Supplier"
+    2. If that works, the issue is with special characters
+    3. Check PHP error logs for detailed error messages
+    4. Contact your system administrator with the error message
+  </Accordion>
+</AccordionGroup>
+
+## Integration with Merchandise Reception
+
+Suppliers are primarily used in the **Recepciones de Mercancía** module (`registros.php`).
+
+### Reception Form Integration
+
+When registering a merchandise reception, you select the supplier from a dropdown:
+
+```php
+<div class="mb-3">
+    <label>Proveedor</label>
+    <select name="id_proveedor" class="form-select" required>
+        <?php
+        $provs = $conn->query("SELECT id_proveedor, nombre FROM proveedor");
+        while($pr = $provs->fetch()) {
+            echo "<option value='{$pr['id_proveedor']}'>{$pr['nombre']}</option>";
+        }
+        ?>
+    </select>
+</div>
+```
+
+### Reception History Query
+
+To view all receptions from a specific supplier:
+
+```sql
+SELECT r.fecha_registro, p.nombre as prenda, e.nombre as empleado, prov.nombre as proveedor
+FROM registro r
+JOIN prenda p ON r.id_prenda = p.id_prenda
+JOIN empleado e ON r.id_empleado = e.id_empleado
+JOIN proveedor prov ON r.id_proveedor = prov.id_proveedor
+WHERE prov.id_proveedor = ?
+ORDER BY r.fecha_registro DESC;
+```
+
+<Tip>
+  Future enhancements could include a "View Receptions" link in the supplier table that filters the reception history page by that supplier.
+</Tip>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Database Schema" icon="database" href="/database/overview">
+    Review the proveedor table structure and foreign key relationships
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Establish naming conventions">
+    Decide how to format supplier names:
+    - Always include legal entity suffix (S.A., S.R.L., etc.)
+    - Use consistent capitalization
+    - Decide whether to use full names or abbreviations
+    
+    Example: "ABC Textiles S.A. de C.V." vs. "ABC Textiles" vs. "abc textiles"
+  </Step>
+  
+  <Step title="Keep contact information current">
+    Regularly verify and update:
+    - Phone numbers (suppliers may change contact numbers)
+    - Addresses (suppliers may relocate)
+    - Add email addresses to the address field for easy reference
+  </Step>
+  
+  <Step title="Never delete suppliers with history">
+    Preserve supplier records that have reception history for audit purposes. Use the [INACTIVE] naming convention instead of deletion.
+  </Step>
+  
+  <Step title="Include complete information">
+    Even though phone and address are optional, include as much detail as possible:
+    - Helps with reordering
+    - Useful for warranty claims
+    - Essential for returns or exchanges
+    - Supports supply chain auditing
+  </Step>
+  
+  <Step title="Document supplier relationships">
+    Use the address field creatively:
+    - Note payment terms: "NET 30 payment terms"
+    - Add account numbers: "Acct #12345"
+    - Note special contacts: "Contact: Juan García for rush orders"
+    - Add email: "orders@supplier.com"
+  </Step>
+  
+  <Step title="Regular supplier audits">
+    Periodically review your supplier list:
+    - Mark inactive suppliers
+    - Update contact information
+    - Consolidate duplicates
+    - Verify all active suppliers have complete information
+  </Step>
+</Steps>
+
+## Future Enhancements
+
+While not currently implemented, future versions could include:
+
+- **Supplier performance tracking**: Rate suppliers based on quality, timeliness, pricing
+- **Contact person management**: Multiple contacts per supplier with roles
+- **Document attachments**: Store contracts, certificates, or correspondence
+- **Purchase order integration**: Link suppliers to purchase orders
+- **Payment terms tracking**: Record and monitor payment agreements
+- **Supplier categories**: Group suppliers by type (domestic, international, etc.)
+- **Automatic reorder suggestions**: Based on supplier lead times and stock levels

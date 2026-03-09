@@ -1,0 +1,103 @@
+---
+title: Introduction
+description: Complete inventory management system for clothing stores with product tracking, employee management, and stock control
+---
+
+## Welcome to TiendaRopa
+
+TiendaRopa is a comprehensive CRUD-based inventory management system designed specifically for clothing retail businesses. Built with PHP and MySQL, it provides a complete solution for managing products, employees, suppliers, and stock movements.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/installation">
+    Get up and running with TiendaRopa in minutes
+  </Card>
+  <Card title="Database Setup" icon="database" href="/database-setup">
+    Configure your MySQL database and import the schema
+  </Card>
+  <Card title="User Guide" icon="book-open" href="/guides/managing-products">
+    Learn how to manage your inventory effectively
+  </Card>
+  <Card title="Database Reference" icon="table" href="/database/overview">
+    Explore the complete database schema
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<AccordionGroup>
+  <Accordion title="Product Inventory Management" icon="shirt">
+    Comprehensive product tracking with support for multiple categories, sizes (tallas), and colors. Each product includes pricing, current stock levels, and full categorization for easy organization and retrieval.
+  </Accordion>
+
+  <Accordion title="Employee & Supplier Tracking" icon="users">
+    Manage your team with employee records including role assignments (empleado/gerente). Track supplier relationships with contact information and address details for seamless procurement management.
+  </Accordion>
+
+  <Accordion title="Stock Movement Recording" icon="truck">
+    Record all inventory movements including:
+    - **Entrada** (incoming stock)
+    - **Salida** (outgoing stock)  
+    - **Ajuste** (inventory adjustments)
+    
+    Each movement is timestamped and linked to the responsible employee for complete audit trails.
+  </Accordion>
+
+  <Accordion title="Price Update History" icon="tag">
+    Track all price changes over time with the actualizaciones system. View historical pricing, who made changes, and when they occurred for complete transparency and business intelligence.
+  </Accordion>
+
+  <Accordion title="Advanced Search & Sorting" icon="magnifying-glass">
+    Powerful search capabilities across product names, colors, sizes, categories, and prices. Sort by any column with ascending/descending order for quick data access.
+  </Accordion>
+
+  <Accordion title="Registration & Audit Trail" icon="clipboard-list">
+    Complete product registration system linking products to employees and suppliers. Maintain full traceability of when products were added to your inventory and by whom.
+  </Accordion>
+</AccordionGroup>
+
+## System Architecture
+
+TiendaRopa is built as a traditional server-side web application:
+
+- **Frontend**: Bootstrap 5.3 for responsive UI components
+- **Backend**: PHP with PDO for database operations
+- **Database**: MySQL/MariaDB with normalized schema design
+- **Server**: Designed to run on XAMPP, WAMP, or similar LAMP stacks
+
+<Note>
+  TiendaRopa was developed as a database workshop project ("Taller de Bases de Datos"), demonstrating practical CRUD operations, database normalization, foreign key relationships, and real-world inventory management workflows.
+</Note>
+
+## Core Modules
+
+The system is organized into several functional modules:
+
+| Module | File | Purpose |
+|--------|------|---------|
+| **Inventory** | `index.php` | Main product listing with search and sorting |
+| **Product Management** | `crear.php`, `editar.php`, `eliminar.php` | Create, update, and delete products |
+| **Catalog Management** | `categorias.php`, `colores.php`, `tallas.php` | Manage product attributes |
+| **People Management** | `empleados.php`, `proveedores.php` | Employee and supplier records |
+| **Stock Operations** | `movimientos.php`, `actualizaciones.php`, `registros.php` | Track inventory changes |
+
+## Getting Started
+
+<Steps>
+  <Step title="Install Prerequisites">
+    Ensure you have PHP 8.2+ and MySQL/MariaDB installed (XAMPP recommended)
+  </Step>
+  
+  <Step title="Set Up Database">
+    Import the `TiendaRopa.sql` file to create the database schema and sample data
+  </Step>
+  
+  <Step title="Configure Connection">
+    Update `db.php` with your database credentials
+  </Step>
+  
+  <Step title="Launch Application">
+    Access the application through your web server at `http://localhost/tienda_ropa/`
+  </Step>
+</Steps>
+
+Ready to dive in? Start with the [Installation Guide](/installation) to set up your development environment.

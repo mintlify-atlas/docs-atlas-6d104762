@@ -1,0 +1,401 @@
+---
+title: registro Table
+description: Product registration table linking products to suppliers with audit timestamps
+---
+
+## Overview
+
+The `registro` table establishes the relationship between products and their suppliers. It serves as a junction table that records when products are registered in the system and which supplier provides them. This enables supply chain tracking and vendor-product relationship management.
+
+**Table Name:** `registro`  
+**Engine:** InnoDB  
+**Character Set:** utf8mb4  
+**Primary Key:** `id_registro`
+
+## Table Structure
+
+### Column Definitions
+
+<ParamField path="id_registro" type="int(11)" required>
+  Primary key identifier for the registration record. Auto-increments on insert.
+</ParamField>
+
+<ParamField path="fecha_registro" type="datetime" default="current_timestamp()">
+  Timestamp of when the product was registered in the system. Automatically set to current timestamp on insert.
+</ParamField>
+
+<ParamField path="id_prenda" type="int(11)" required>
+  Foreign key reference to `prenda.id_prenda`. Identifies the product being registered.
+</ParamField>
+
+<ParamField path="id_empleado" type="int(11)" required>
+  Foreign key reference to `empleado.id_empleado`. Records which employee performed the registration.
+</ParamField>
+
+<ParamField path="id_proveedor" type="int(11)" required>
+  Foreign key reference to `proveedor.id_proveedor`. Identifies which supplier provides this product.
+</ParamField>
+
+## CREATE TABLE Statement
+
+```sql
+CREATE TABLE `registro` (
+  `id_registro` int(11) NOT NULL,
+  `fecha_registro` datetime DEFAULT current_timestamp(),
+  `id_prenda` int(11) NOT NULL,
+  `id_empleado` int(11) NOT NULL,
+  `id_proveedor` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `registro`
+  ADD PRIMARY KEY (`id_registro`),
+  ADD KEY `fk_reg_prenda` (`id_prenda`),
+  ADD KEY `fk_reg_emp` (`id_empleado`),
+  ADD KEY `fk_reg_prov` (`id_proveedor`);
+
+ALTER TABLE `registro`
+  MODIFY `id_registro` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+ALTER TABLE `registro`
+  ADD CONSTRAINT `fk_reg_emp` FOREIGN KEY (`id_empleado`) REFERENCES `empleado` (`id_empleado`),
+  ADD CONSTRAINT `fk_reg_prenda` FOREIGN KEY (`id_prenda`) REFERENCES `prenda` (`id_prenda`),
+  ADD CONSTRAINT `fk_reg_prov` FOREIGN KEY (`id_proveedor`) REFERENCES `proveedor` (`id_proveedor`);
+```
+
+## Indexes
+
+| Index Name | Type | Columns | Purpose |
+|------------|------|---------|----------|
+| `PRIMARY` | PRIMARY KEY | `id_registro` | Unique identifier |
+| `fk_reg_prenda` | INDEX | `id_prenda` | Foreign key lookup for products |
+| `fk_reg_emp` | INDEX | `id_empleado` | Foreign key lookup for employees |
+| `fk_reg_prov` | INDEX | `id_proveedor` | Foreign key lookup for suppliers |
+
+## Foreign Key Relationships
+
+### Parent Tables (Referenced)
+
+The `registro` table creates a three-way relationship between products, employees, and suppliers:
+
+<CardGroup cols={3}>
+  <Card title="prenda" icon="shirt" href="./prenda">
+    **Constraint:** `fk_reg_prenda`  
+    **Column:** `id_prenda` → `prenda.id_prenda`  
+    Product being registered
+  </Card>
+  
+  <Card title="empleado" icon="user" href="./empleado">
+    **Constraint:** `fk_reg_emp`  
+    **Column:** `id_empleado` → `empleado.id_empleado`  
+    Employee who registered the product
+  </Card>
+  
+  <Card title="proveedor" icon="truck" href="./proveedor">
+    **Constraint:** `fk_reg_prov`  
+    **Column:** `id_proveedor` → `proveedor.id_proveedor`  
+    Supplier who provides the product
+  </Card>
+</CardGroup>
+
+## Sample Data
+
+```sql
+INSERT INTO `registro` (`id_registro`, `fecha_registro`, `id_prenda`, `id_empleado`, `id_proveedor`) VALUES
+(1, '2026-02-07 20:24:25', 1, 1, 1),
+(2, '2026-02-07 20:24:25', 2, 4, 2),
+(3, '2026-02-07 20:24:25', 3, 1, 3),
+(4, '2026-02-07 20:24:25', 4, 4, 4),
+(5, '2026-02-07 20:24:25', 5, 1, 5),
+(7, '2026-02-24 07:34:28', 36, 2, 5);
+```
+
+### Registration Examples
+
+<ResponseField name="Registration 1">
+  **Product:** Camisa Oxford Slim (ID: 1)  
+  **Supplier:** Casimires y Trajes Lucerna  
+  **Registered by:** Karina Sánchez (Manager)  
+  **Date:** Feb 7, 2026, 8:24 PM  
+  **Note:** Formal wear registered with specialty suit supplier
+</ResponseField>
+
+<ResponseField name="Registration 3">
+  **Product:** Vestido de Gala Rojo (ID: 3)  
+  **Supplier:** La Charrita de Aguascalientes  
+  **Registered by:** Karina Sánchez (Manager)  
+  **Date:** Feb 7, 2026, 8:24 PM  
+  **Note:** Formal dress registered with traditional dress supplier
+</ResponseField>
+
+<ResponseField name="Registration 7">
+  **Product:** Conjunto Pijama Negra (ID: 36)  
+  **Supplier:** Fábrica de Tejido de Punto y Confecciones Ofelia S.A. de C.V.  
+  **Registered by:** Miguel Esparza (Staff)  
+  **Date:** Feb 24, 2026, 7:34 AM  
+  **Note:** Recent registration by staff member (not manager)
+</ResponseField>
+
+## Common Queries
+
+### Complete Product Registration Details
+
+```sql
+SELECT 
+    r.id_registro,
+    r.fecha_registro,
+    p.nombre as producto,
+    c.nombre as categoria,
+    prov.nombre as proveedor,
+    prov.telefono as telefono_proveedor,
+    e.nombre as registrado_por,
+    e.puesto as cargo
+FROM registro r
+INNER JOIN prenda p ON r.id_prenda = p.id_prenda
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+INNER JOIN proveedor prov ON r.id_proveedor = prov.id_proveedor
+INNER JOIN empleado e ON r.id_empleado = e.id_empleado
+ORDER BY r.fecha_registro DESC;
+```
+
+### Products by Supplier
+
+```sql
+SELECT 
+    prov.nombre as proveedor,
+    COUNT(DISTINCT r.id_prenda) as total_productos,
+    GROUP_CONCAT(p.nombre SEPARATOR ', ') as productos,
+    MIN(r.fecha_registro) as primer_registro,
+    MAX(r.fecha_registro) as ultimo_registro
+FROM registro r
+INNER JOIN prenda p ON r.id_prenda = p.id_prenda
+INNER JOIN proveedor prov ON r.id_proveedor = prov.id_proveedor
+GROUP BY prov.id_proveedor, prov.nombre
+ORDER BY total_productos DESC;
+```
+
+### Supplier Product Catalog
+
+```sql
+SELECT 
+    prov.nombre as proveedor,
+    p.nombre as producto,
+    p.precio,
+    p.stock_actual,
+    c.nombre as categoria,
+    r.fecha_registro
+FROM registro r
+INNER JOIN prenda p ON r.id_prenda = p.id_prenda
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+INNER JOIN proveedor prov ON r.id_proveedor = prov.id_proveedor
+WHERE prov.id_proveedor = 5  -- Fábrica de Tejido de Punto y Confecciones Ofelia
+ORDER BY r.fecha_registro DESC;
+```
+
+### Registration Activity by Employee
+
+```sql
+SELECT 
+    e.nombre as empleado,
+    e.puesto,
+    COUNT(*) as total_registros,
+    MIN(r.fecha_registro) as primer_registro,
+    MAX(r.fecha_registro) as ultimo_registro,
+    COUNT(DISTINCT r.id_proveedor) as proveedores_gestionados
+FROM registro r
+INNER JOIN empleado e ON r.id_empleado = e.id_empleado
+GROUP BY e.id_empleado, e.nombre, e.puesto
+ORDER BY total_registros DESC;
+```
+
+### Recent Registrations
+
+```sql
+SELECT 
+    r.fecha_registro,
+    p.nombre as producto,
+    prov.nombre as proveedor,
+    e.nombre as empleado
+FROM registro r
+INNER JOIN prenda p ON r.id_prenda = p.id_prenda
+INNER JOIN proveedor prov ON r.id_proveedor = prov.id_proveedor
+INNER JOIN empleado e ON r.id_empleado = e.id_empleado
+WHERE r.fecha_registro >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+ORDER BY r.fecha_registro DESC;
+```
+
+### Supplier Distribution by Category
+
+```sql
+SELECT 
+    prov.nombre as proveedor,
+    c.nombre as categoria,
+    COUNT(*) as productos_en_categoria
+FROM registro r
+INNER JOIN prenda p ON r.id_prenda = p.id_prenda
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+INNER JOIN proveedor prov ON r.id_proveedor = prov.id_proveedor
+GROUP BY prov.id_proveedor, prov.nombre, c.id_categoria, c.nombre
+ORDER BY prov.nombre, productos_en_categoria DESC;
+```
+
+### Unregistered Products (Products without Supplier)
+
+```sql
+SELECT 
+    p.id_prenda,
+    p.nombre as producto,
+    p.precio,
+    c.nombre as categoria
+FROM prenda p
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+LEFT JOIN registro r ON p.id_prenda = r.id_prenda
+WHERE r.id_registro IS NULL
+ORDER BY p.nombre;
+```
+
+## Business Rules
+
+<Warning>
+  **One Registration Per Product:** While the schema allows multiple registrations for the same product, business logic should typically enforce one active supplier per product to avoid confusion.
+</Warning>
+
+<Info>
+  **Registration Timing:** Products should be registered when they are first added to the catalog or when a new supplier relationship is established.
+</Info>
+
+<Tip>
+  **Manager Approval:** Product registrations are typically performed by managers (`puesto = 'gerente'`), though the system allows staff to perform registrations as well (as seen in registration 7).
+</Tip>
+
+<Warning>
+  **Immutable Records:** Registration records should not be deleted or modified after creation. If a supplier relationship ends, consider adding status fields rather than deleting historical data.
+</Warning>
+
+## Supply Chain Analysis
+
+### Supplier Performance Scorecard
+
+```sql
+SELECT 
+    prov.nombre as proveedor,
+    COUNT(DISTINCT r.id_prenda) as productos_suministrados,
+    SUM(pr.stock_actual) as unidades_en_stock,
+    SUM(pr.precio * pr.stock_actual) as valor_inventario,
+    AVG(pr.precio) as precio_promedio_producto,
+    DATEDIFF(NOW(), MAX(r.fecha_registro)) as dias_desde_ultimo_registro
+FROM proveedor prov
+INNER JOIN registro r ON prov.id_proveedor = r.id_proveedor
+INNER JOIN prenda pr ON r.id_prenda = pr.id_prenda
+GROUP BY prov.id_proveedor, prov.nombre
+ORDER BY valor_inventario DESC;
+```
+
+### Product Registration Timeline
+
+```sql
+SELECT 
+    DATE_FORMAT(r.fecha_registro, '%Y-%m') as mes_registro,
+    COUNT(*) as total_registros,
+    COUNT(DISTINCT r.id_proveedor) as proveedores_activos,
+    COUNT(DISTINCT r.id_empleado) as empleados_activos
+FROM registro r
+GROUP BY DATE_FORMAT(r.fecha_registro, '%Y-%m')
+ORDER BY mes_registro DESC;
+```
+
+### Supplier Specialization Report
+
+```sql
+SELECT 
+    prov.nombre as proveedor,
+    c.nombre as especialidad_principal,
+    COUNT(*) as productos_categoria,
+    ROUND((COUNT(*) * 100.0) / SUM(COUNT(*)) OVER (PARTITION BY prov.id_proveedor), 2) as porcentaje
+FROM registro r
+INNER JOIN proveedor prov ON r.id_proveedor = prov.id_proveedor
+INNER JOIN prenda p ON r.id_prenda = p.id_prenda
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+GROUP BY prov.id_proveedor, prov.nombre, c.id_categoria, c.nombre
+ORDER BY prov.nombre, productos_categoria DESC;
+```
+
+## Extension Possibilities
+
+<Tip>
+  **Recommended Enhancements:**
+  - Add `estado` ENUM('activo', 'inactivo', 'descontinuado') to track supplier relationship status
+  - Add `fecha_descontinuacion` DATETIME for when supplier relationship ended
+  - Add `costo_unitario` DECIMAL to track wholesale cost from supplier
+  - Add `tiempo_entrega_dias` INT for supplier lead time
+  - Add `cantidad_minima_orden` INT for minimum order quantities
+  - Add `notas` TEXT for special terms or conditions
+  - Add `codigo_proveedor` VARCHAR(50) for supplier's internal product code
+  - Add `ultimo_pedido` DATETIME to track last order date
+  - Add `calidad_rating` DECIMAL(3,2) for supplier quality scores
+  - Create composite UNIQUE index on (id_prenda, id_proveedor) if one supplier per product is desired
+  - Add `contrato_referencia` VARCHAR(100) for contract number
+  - Add `descuento_porcentaje` DECIMAL(5,2) for negotiated discounts
+</Tip>
+
+## Reporting Queries
+
+### Supplier Dependency Analysis
+
+```sql
+SELECT 
+    prov.nombre as proveedor,
+    COUNT(DISTINCT r.id_prenda) as productos_dependientes,
+    SUM(pr.stock_actual) as unidades_dependientes,
+    ROUND((COUNT(DISTINCT r.id_prenda) * 100.0) / (SELECT COUNT(*) FROM prenda), 2) as porcentaje_catalogo
+FROM proveedor prov
+INNER JOIN registro r ON prov.id_proveedor = r.id_proveedor
+INNER JOIN prenda pr ON r.id_prenda = pr.id_prenda
+GROUP BY prov.id_proveedor, prov.nombre
+ORDER BY productos_dependientes DESC;
+```
+
+### Monthly Registration Report
+
+```sql
+SELECT 
+    DATE_FORMAT(r.fecha_registro, '%Y-%m-%d') as fecha,
+    COUNT(*) as registros_dia,
+    GROUP_CONCAT(DISTINCT e.nombre SEPARATOR ', ') as empleados,
+    GROUP_CONCAT(DISTINCT prov.nombre SEPARATOR ', ') as proveedores
+FROM registro r
+INNER JOIN empleado e ON r.id_empleado = e.id_empleado
+INNER JOIN proveedor prov ON r.id_proveedor = prov.id_proveedor
+WHERE r.fecha_registro >= DATE_SUB(NOW(), INTERVAL 3 MONTH)
+GROUP BY DATE_FORMAT(r.fecha_registro, '%Y-%m-%d')
+ORDER BY fecha DESC;
+```
+
+## Usage in Application
+
+### Product Details with Supplier
+
+```sql
+SELECT 
+    p.*,
+    prov.nombre as proveedor,
+    prov.telefono as telefono_proveedor,
+    prov.direccion as direccion_proveedor,
+    r.fecha_registro
+FROM prenda p
+LEFT JOIN registro r ON p.id_prenda = r.id_prenda
+LEFT JOIN proveedor prov ON r.id_proveedor = prov.id_proveedor
+WHERE p.id_prenda = ?;
+```
+
+### Supplier Selection for Product
+
+```sql
+SELECT 
+    prov.id_proveedor,
+    prov.nombre,
+    COUNT(r.id_registro) as productos_actuales
+FROM proveedor prov
+LEFT JOIN registro r ON prov.id_proveedor = r.id_proveedor
+GROUP BY prov.id_proveedor, prov.nombre
+ORDER BY prov.nombre;
+```

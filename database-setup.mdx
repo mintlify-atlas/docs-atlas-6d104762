@@ -1,0 +1,530 @@
+---
+title: 'Database Setup'
+description: 'Import the TiendaRopa database schema and configure the database connection'
+---
+
+This guide covers importing the database schema, configuring the connection, and verifying your setup.
+
+## Prerequisites
+
+<Check>Complete the [Installation](/installation) guide before proceeding</Check>
+<Check>XAMPP Apache and MySQL services must be running</Check>
+
+## Database Overview
+
+The TiendaRopa database includes 8 interconnected tables for managing clothing inventory:
+
+<CardGroup cols={2}>
+  <Card title="prenda" icon="shirt">
+    Main inventory table with clothing items
+  </Card>
+  <Card title="categoria" icon="layer-group">
+    Categories: Caballero, Dama, Infantil, Deportiva, Accesorios
+  </Card>
+  <Card title="talla" icon="ruler">
+    Size management (ch, m, g, ech, eg)
+  </Card>
+  <Card title="color" icon="palette">
+    Color catalog for garments
+  </Card>
+  <Card title="empleado" icon="user">
+    Staff members (gerente, empleado)
+  </Card>
+  <Card title="proveedor" icon="truck">
+    Supplier information
+  </Card>
+  <Card title="movimiento_stock" icon="arrow-right-arrow-left">
+    Stock movements (entrada, salida, ajuste)
+  </Card>
+  <Card title="actualizacion" icon="clock">
+    Price change history
+  </Card>
+</CardGroup>
+
+## Step 1: Access phpMyAdmin
+
+<Steps>
+  <Step title="Open phpMyAdmin">
+    With XAMPP running, navigate to:
+    
+    ```
+    http://localhost/phpmyadmin
+    ```
+    
+    You should see the phpMyAdmin interface.
+  </Step>
+  
+  <Step title="Login (if required)">
+    Default XAMPP credentials:
+    - **Username**: `root`
+    - **Password**: (leave empty)
+    
+    <Note>If you've secured your MySQL installation, use your custom credentials</Note>
+  </Step>
+</Steps>
+
+## Step 2: Import the Database
+
+The `TiendaRopa.sql` file contains the complete database schema and sample data.
+
+<Steps>
+  <Step title="Locate the SQL File">
+    Find `TiendaRopa.sql` in your project directory:
+    
+    ```
+    CRUD Tienda Ropa/TiendaRopa.sql
+    ```
+  </Step>
+  
+  <Step title="Import via phpMyAdmin">
+    In phpMyAdmin:
+    
+    1. Click on the **Import** tab in the top menu
+    2. Click **Choose File** and select `TiendaRopa.sql`
+    3. Ensure format is set to **SQL**
+    4. Scroll down and click **Go/Import**
+    
+    <Check>You should see a success message: "Import has been successfully finished"</Check>
+  </Step>
+  
+  <Step title="Verify Database Creation">
+    Look at the left sidebar. You should now see a database named **tienda_ropa**.
+    
+    Click on it to expand and verify all 8 tables were created:
+    - actualizacion
+    - categoria
+    - color
+    - empleado
+    - movimiento_stock
+    - prenda
+    - proveedor
+    - registro
+    - talla
+  </Step>
+</Steps>
+
+<Warning>
+  The SQL file automatically creates the database. If a `tienda_ropa` database already exists, you may want to drop it first to avoid conflicts:
+  
+  ```sql
+  DROP DATABASE IF EXISTS tienda_ropa;
+  ```
+</Warning>
+
+## Step 3: Understand the Database Schema
+
+### Core Tables
+
+<Tabs>
+  <Tab title="prenda (Garments)">
+    The main inventory table storing all clothing items.
+    
+    ```sql
+    CREATE TABLE `prenda` (
+      `id_prenda` int(11) NOT NULL AUTO_INCREMENT,
+      `nombre` varchar(100) NOT NULL,
+      `precio` decimal(10,2) NOT NULL,
+      `stock_actual` int(11) DEFAULT 0,
+      `id_categoria` int(11) NOT NULL,
+      `id_talla` int(11) NOT NULL,
+      `id_color` int(11) NOT NULL,
+      PRIMARY KEY (`id_prenda`)
+    );
+    ```
+    
+    **Key Relationships**:
+    - Links to `categoria` (clothing type)
+    - Links to `talla` (size)
+    - Links to `color` (color)
+  </Tab>
+  
+  <Tab title="categoria (Categories)">
+    Defines clothing categories.
+    
+    ```sql
+    CREATE TABLE `categoria` (
+      `id_categoria` int(11) NOT NULL AUTO_INCREMENT,
+      `nombre` varchar(50) NOT NULL,
+      `descripcion` text DEFAULT NULL,
+      PRIMARY KEY (`id_categoria`)
+    );
+    ```
+    
+    **Sample Data**:
+    1. Caballero - Men's formal and casual wear
+    2. Dama - Women's dresses and blouses
+    3. Infantil - Children's clothing (2-12 years)
+    4. Deportiva - High-performance athletic wear
+    5. Accesorios - Belts, scarves, basic jewelry
+  </Tab>
+  
+  <Tab title="movimiento_stock (Stock Movements)">
+    Tracks all inventory changes.
+    
+    ```sql
+    CREATE TABLE `movimiento_stock` (
+      `id_movimiento` int(11) NOT NULL AUTO_INCREMENT,
+      `fecha` datetime DEFAULT current_timestamp(),
+      `tipo_movimiento` varchar(10) NOT NULL,
+      `cantidad` int(11) NOT NULL,
+      `id_prenda` int(11) NOT NULL,
+      `id_empleado` int(11) NOT NULL,
+      PRIMARY KEY (`id_movimiento`)
+    );
+    ```
+    
+    **Movement Types**:
+    - `entrada` - Stock received
+    - `salida` - Stock sold/removed
+    - `ajuste` - Inventory adjustment
+  </Tab>
+  
+  <Tab title="actualizacion (Price Updates)">
+    Maintains price change history.
+    
+    ```sql
+    CREATE TABLE `actualizacion` (
+      `id_actualizacion` int(11) NOT NULL AUTO_INCREMENT,
+      `fecha` datetime DEFAULT current_timestamp(),
+      `precio_anterior` decimal(10,2) NOT NULL,
+      `precio_nuevo` decimal(10,2) NOT NULL,
+      `id_prenda` int(11) NOT NULL,
+      `id_empleado` int(11) NOT NULL,
+      PRIMARY KEY (`id_actualizacion`)
+    );
+    ```
+    
+    Automatically timestamped when prices are updated.
+  </Tab>
+</Tabs>
+
+## Step 4: Configure Database Connection
+
+The database connection is managed through `db.php` using PDO.
+
+### Default Configuration
+
+```php tienda_ropa/db.php
+<?php
+$host = "localhost";
+$db_name = "tienda_ropa";
+$username = "root"; // Usuario por defecto en phpMyAdmin
+$password = "";     // Contraseña por defecto vacía en XAMPP
+
+try {
+    $conn = new PDO("mysql:host=$host;dbname=$db_name;charset=utf8", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    echo "Error de conexión: " . $e->getMessage();
+}
+?>
+```
+
+### Custom Configuration
+
+<Info>
+  Only modify `db.php` if you've customized your MySQL installation with:
+  - A different root password
+  - A custom database user
+  - A non-standard port
+  - Remote database access
+</Info>
+
+If needed, update the connection parameters:
+
+<CodeGroup>
+```php Custom Password
+<?php
+$host = "localhost";
+$db_name = "tienda_ropa";
+$username = "root";
+$password = "your_mysql_password"; // Add your password here
+
+try {
+    $conn = new PDO("mysql:host=$host;dbname=$db_name;charset=utf8", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    echo "Error de conexión: " . $e->getMessage();
+}
+?>
+```
+
+```php Custom Port
+<?php
+$host = "localhost";
+$port = "3307"; // Custom port
+$db_name = "tienda_ropa";
+$username = "root";
+$password = "";
+
+try {
+    $conn = new PDO("mysql:host=$host;port=$port;dbname=$db_name;charset=utf8", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    echo "Error de conexión: " . $e->getMessage();
+}
+?>
+```
+
+```php Custom User
+<?php
+$host = "localhost";
+$db_name = "tienda_ropa";
+$username = "tienda_user"; // Custom database user
+$password = "secure_password";
+
+try {
+    $conn = new PDO("mysql:host=$host;dbname=$db_name;charset=utf8", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    echo "Error de conexión: " . $e->getMessage();
+}
+?>
+```
+</CodeGroup>
+
+## Step 5: Verify Database Tables
+
+<Steps>
+  <Step title="Check Table Structure">
+    In phpMyAdmin, click on the `tienda_ropa` database and verify all tables have data:
+    
+    | Table | Expected Rows |
+    |-------|---------------|
+    | categoria | 5 |
+    | color | 5 |
+    | talla | 5 |
+    | empleado | 5 |
+    | proveedor | 5 |
+    | prenda | 15+ |
+    | movimiento_stock | 20+ |
+    | actualizacion | 6+ |
+    | registro | 5+ |
+  </Step>
+  
+  <Step title="Browse Sample Data">
+    Click on any table name, then click **Browse** to view the sample data.
+    
+    For example, clicking on `prenda` should show items like:
+    - Camisa Oxford Slim
+    - Pantalón Jean Clásico
+    - Vestido de Gala Rojo
+    - Playera Deportiva Pro
+  </Step>
+  
+  <Step title="Verify Foreign Keys">
+    Click on the **Structure** tab for the `prenda` table.
+    
+    Under "Relation view", verify foreign key constraints are active:
+    - `id_categoria` → `categoria(id_categoria)`
+    - `id_talla` → `talla(id_talla)`
+    - `id_color` → `color(id_color)`
+  </Step>
+</Steps>
+
+## Step 6: Test the Application
+
+<Steps>
+  <Step title="Access the Application">
+    Open your browser and navigate to:
+    
+    ```
+    http://localhost/tienda_ropa
+    ```
+    
+    or
+    
+    ```
+    http://localhost/tienda_ropa/index.php
+    ```
+  </Step>
+  
+  <Step title="Verify Homepage Loads">
+    You should see:
+    - The TiendaRopa navigation bar
+    - An "Inventario" (Inventory) table
+    - Sample garments with prices, stock, categories, sizes, and colors
+    - Search functionality
+    - Sortable columns
+    
+    <Check>If you see the inventory table with data, your database setup is complete!</Check>
+  </Step>
+  
+  <Step title="Test CRUD Operations">
+    Try basic operations to ensure everything works:
+    
+    1. **Create**: Click "Nueva Prenda" to add a new garment
+    2. **Read**: View the inventory table
+    3. **Update**: Click "Editar" on any item
+    4. **Delete**: Click "Borrar" (you'll get a confirmation)
+  </Step>
+</Steps>
+
+## Understanding Sample Data
+
+The database includes realistic sample data to help you get started:
+
+### Categories (categoria)
+
+- **Caballero**: Men's formal, informal, casual and formal wear
+- **Dama**: Dresses, blouses and seasonal trends for women
+- **Infantil**: Comfortable and durable clothing for children 2-12 years
+- **Deportiva**: High-performance technical sportswear
+- **Accesorios**: Accessories like belts, scarves and basic jewelry
+
+### Sizes (talla)
+
+- **ch**: Chico (Small)
+- **m**: Mediano (Medium)
+- **g**: Grande (Large)
+- **ech**: Extra Chico (Extra Small)
+- **eg**: Extra Grande (Extra Large)
+
+### Colors (color)
+
+- Negro Nocturno (Night Black)
+- Blanco Pureza (Pure White)
+- Azul Marino (Navy Blue)
+- Rojo Pasión (Passion Red)
+- Gris Oxford (Oxford Grey)
+
+### Employees (empleado)
+
+Sample staff with roles:
+- **Gerente** (Manager): Karina Sánchez, Kennia De luna, Mariana Juárez
+- **Empleado** (Employee): Miguel Esparza, Guadalupe Hernández
+
+### Sample Garments
+
+<CardGroup cols={2}>
+  <Card title="Camisa Oxford Slim">
+    **Price**: $450.00  
+    **Stock**: 25  
+    **Category**: Caballero  
+    **Size**: M | **Color**: Azul Marino
+  </Card>
+  
+  <Card title="Vestido de Gala Rojo">
+    **Price**: $1,350.00  
+    **Stock**: 10  
+    **Category**: Dama  
+    **Size**: M | **Color**: Rojo Pasión
+  </Card>
+  
+  <Card title="Playera Deportiva Pro">
+    **Price**: $350.00  
+    **Stock**: 50  
+    **Category**: Deportiva  
+    **Size**: CH | **Color**: Blanco Pureza
+  </Card>
+  
+  <Card title="Sudadera Infantil Hoodie">
+    **Price**: $400.00  
+    **Stock**: 15  
+    **Category**: Infantil  
+    **Size**: M | **Color**: Gris Oxford
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Error: Access denied for user 'root'@'localhost'">
+    Your MySQL root password doesn't match the one in `db.php`.
+    
+    **Solution**: Update the password in `db.php` or reset your MySQL root password:
+    ```sql
+    ALTER USER 'root'@'localhost' IDENTIFIED BY '';
+    FLUSH PRIVILEGES;
+    ```
+  </Accordion>
+  
+  <Accordion title="Error: Unknown database 'tienda_ropa'">
+    The database wasn't created during import.
+    
+    **Solution**: Manually create it in phpMyAdmin SQL tab:
+    ```sql
+    CREATE DATABASE tienda_ropa DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+    ```
+    
+    Then re-import `TiendaRopa.sql`.
+  </Accordion>
+  
+  <Accordion title="Tables are empty after import">
+    The INSERT statements may have failed.
+    
+    **Solution**: Check phpMyAdmin's import log for errors. Ensure:
+    1. The SQL file is complete and not corrupted
+    2. You have sufficient MySQL privileges
+    3. No foreign key constraint errors occurred
+  </Accordion>
+  
+  <Accordion title="Connection error when accessing the application">
+    Check these common issues:
+    
+    1. **MySQL not running**: Start it in XAMPP Control Panel
+    2. **Wrong credentials**: Verify `db.php` matches your MySQL setup
+    3. **PDO not enabled**: Check PHP extensions in `php.ini`
+    
+    Test connection manually:
+    ```php
+    <?php
+    try {
+        $conn = new PDO("mysql:host=localhost;dbname=tienda_ropa", "root", "");
+        echo "Connection successful!";
+    } catch(PDOException $e) {
+        echo "Error: " . $e->getMessage();
+    }
+    ?>
+    ```
+  </Accordion>
+  
+  <Accordion title="Foreign key constraint errors">
+    This happens if you try to insert/update data that violates relationships.
+    
+    **Solution**: The SQL file creates tables in the correct order. Always:
+    1. Drop all tables if re-importing
+    2. Import the complete SQL file
+    3. Don't manually modify table structure without updating constraints
+  </Accordion>
+</AccordionGroup>
+
+## Database Maintenance Tips
+
+<Tip>
+  **Backup Regularly**: Export your database frequently from phpMyAdmin (Export tab → SQL format)
+</Tip>
+
+<Tip>
+  **Use Transactions**: The application uses PDO with exception mode for safe database operations
+</Tip>
+
+<Tip>
+  **Monitor Stock Levels**: The `movimiento_stock` table tracks all inventory changes automatically
+</Tip>
+
+<Tip>
+  **Price History**: The `actualizacion` table maintains complete price change history for auditing
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Core Features" icon="book" href="/features/inventory-management">
+    Learn how to manage your clothing inventory
+  </Card>
+  
+  <Card title="User Guide" icon="user" href="/guides/managing-products">
+    Learn how to use the system effectively
+  </Card>
+  
+  <Card title="Database Schema" icon="diagram-project" href="/database/overview">
+    Explore the complete database structure
+  </Card>
+  
+  <Card title="Database Tables" icon="table" href="/database/tables/prenda">
+    View detailed table documentation
+  </Card>
+</CardGroup>
+
+<Check>Your TiendaRopa installation is now complete and ready to use!</Check>

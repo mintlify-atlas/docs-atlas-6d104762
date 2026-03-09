@@ -1,0 +1,331 @@
+---
+title: 'Stock Movements'
+description: 'Track inventory entries, exits, and adjustments with employee authorization'
+icon: 'truck'
+---
+
+## Overview
+
+The stock movements system tracks all inventory changes with full traceability. Every movement records the type (entry, exit, or adjustment), quantity, responsible employee, and timestamp.
+
+<Info>
+  Stock movements automatically update the `stock_actual` field in the products table, ensuring inventory accuracy.
+</Info>
+
+## Movement Types
+
+The system supports three types of inventory movements:
+
+<CardGroup cols={3}>
+  <Card title="Entrada" icon="truck">
+    **Entry**: Add stock from new shipments or returns
+  </Card>
+  <Card title="Salida" icon="box-open">
+    **Exit**: Remove stock for sales or transfers
+  </Card>
+  <Card title="Ajuste" icon="sliders">
+    **Adjustment**: Correct inventory discrepancies or damages
+  </Card>
+</CardGroup>
+
+## Database Structure
+
+```sql
+CREATE TABLE `movimiento_stock` (
+  `id_movimiento` int(11) NOT NULL,
+  `fecha` datetime DEFAULT current_timestamp(),
+  `tipo_movimiento` varchar(10) NOT NULL,
+  `cantidad` int(11) NOT NULL,
+  `id_prenda` int(11) NOT NULL,
+  `id_empleado` int(11) NOT NULL
+);
+```
+
+### Foreign Key Constraints
+
+```sql
+ALTER TABLE `movimiento_stock`
+  ADD CONSTRAINT `fk_mov_prenda` FOREIGN KEY (`id_prenda`) 
+      REFERENCES `prenda` (`id_prenda`),
+  ADD CONSTRAINT `fk_mov_emp` FOREIGN KEY (`id_empleado`) 
+      REFERENCES `empleado` (`id_empleado`);
+```
+
+<Note>
+  The `fecha` field automatically captures the timestamp when each movement is created using `current_timestamp()`.
+</Note>
+
+## Recording Movements
+
+Movements are recorded through the form in `movimientos.php`:
+
+### Movement Registration Code
+
+```php
+if(isset($_POST['registrar_mov'])){
+    $stmt = $conn->prepare(
+        "INSERT INTO movimiento_stock (tipo_movimiento, cantidad, id_prenda, id_empleado) 
+         VALUES (?, ?, ?, ?)"
+    );
+    $stmt->execute([
+        $_POST['tipo'], 
+        $_POST['cant'], 
+        $_POST['prenda'], 
+        $_POST['emp']
+    ]);
+    
+    // Update stock_actual in the prenda table
+    $operador = ($_POST['tipo'] == 'entrada') ? "+" : "-";
+    if($_POST['tipo'] == 'ajuste') $operador = "+";
+    
+    $conn->query(
+        "UPDATE prenda SET stock_actual = stock_actual $operador {$_POST['cant']} 
+         WHERE id_prenda = {$_POST['prenda']}"
+    );
+    
+    header("Location: movimientos.php");
+}
+```
+
+### Stock Update Logic
+
+<Tabs>
+  <Tab title="Entrada">
+    Entries **add** to stock:
+    ```php
+    $operador = "+";
+    UPDATE prenda SET stock_actual = stock_actual + cantidad
+    ```
+  </Tab>
+  <Tab title="Salida">
+    Exits **subtract** from stock:
+    ```php
+    $operador = "-";
+    UPDATE prenda SET stock_actual = stock_actual - cantidad
+    ```
+  </Tab>
+  <Tab title="Ajuste">
+    Adjustments can be positive or negative:
+    ```php
+    // Quantity can include sign in adjustment type
+    $operador = "+";
+    ```
+  </Tab>
+</Tabs>
+
+## Registration Form
+
+The movement form includes four required fields:
+
+### Form Structure
+
+```php
+<form class="card-body row" method="POST">
+    <div class="col-md-3">
+        <label>Prenda</label>
+        <select name="prenda" class="form-select">
+            <?php 
+            $ps = $conn->query("SELECT id_prenda, nombre FROM prenda"); 
+            while($p = $ps->fetch()) {
+                echo "<option value='{$p['id_prenda']}'>{$p['nombre']}</option>"; 
+            }
+            ?>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label>Tipo</label>
+        <select name="tipo" class="form-select">
+            <option value="entrada">Entrada</option>
+            <option value="salida">Salida</option>
+            <option value="ajuste">Ajuste</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label>Cantidad</label>
+        <input type="number" name="cant" class="form-control" required>
+    </div>
+    <div class="col-md-3">
+        <label>Empleado que autoriza</label>
+        <select name="emp" class="form-select">
+            <?php 
+            $es = $conn->query("SELECT id_empleado, nombre FROM empleado"); 
+            while($e = $es->fetch()) {
+                echo "<option value='{$e['id_empleado']}'>{$e['nombre']}</option>"; 
+            }
+            ?>
+        </select>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <button name="registrar_mov" class="btn btn-success w-100">Registrar</button>
+    </div>
+</form>
+```
+
+<Steps>
+  <Step title="Select Product">
+    Choose the product (prenda) from a dropdown populated with all available items
+  </Step>
+  <Step title="Choose Movement Type">
+    Select whether this is an entry, exit, or adjustment
+  </Step>
+  <Step title="Enter Quantity">
+    Specify how many units to add, remove, or adjust
+  </Step>
+  <Step title="Authorize Employee">
+    Select the employee authorizing this movement for accountability
+  </Step>
+  <Step title="Submit">
+    Click "Registrar" to record the movement and update stock levels
+  </Step>
+</Steps>
+
+## Movement History
+
+The movements table displays a complete audit trail:
+
+### History Query
+
+```php
+$sql = "SELECT m.*, p.nombre as p_nom, e.nombre as e_nom 
+        FROM movimiento_stock m 
+        JOIN prenda p ON m.id_prenda = p.id_prenda 
+        JOIN empleado e ON m.id_empleado = e.id_empleado 
+        ORDER BY fecha DESC";
+```
+
+### Table Display
+
+Movements are color-coded by type:
+
+```php
+while($row = $res->fetch()){
+    $clase = ($row['tipo_movimiento'] == 'entrada') ? 'text-success' : 'text-danger';
+    echo "<tr>
+            <td>{$row['fecha']}</td>
+            <td>{$row['p_nom']}</td>
+            <td class='fw-bold $clase'>" . strtoupper($row['tipo_movimiento']) . "</td>
+            <td>{$row['cantidad']}</td>
+            <td>{$row['e_nom']}</td>
+          </tr>";
+}
+```
+
+<Tabs>
+  <Tab title="Entry Display">
+    Entries appear in **green** (text-success):
+    - **ENTRADA** in bold green text
+    - Indicates positive stock addition
+  </Tab>
+  <Tab title="Exit Display">
+    Exits appear in **red** (text-danger):
+    - **SALIDA** in bold red text
+    - Indicates stock reduction
+  </Tab>
+  <Tab title="Columns">
+    | Column | Data Source | Description |
+    |--------|-------------|-------------|
+    | Fecha | `m.fecha` | Automatic timestamp |
+    | Prenda | `p.nombre` | Product name (join) |
+    | Tipo | `m.tipo_movimiento` | Color-coded movement type |
+    | Cant. | `m.cantidad` | Units affected |
+    | Empleado | `e.nombre` | Authorizing employee (join) |
+  </Tab>
+</Tabs>
+
+## Example Movement Data
+
+Here are real examples from the system:
+
+```sql
+INSERT INTO `movimiento_stock` VALUES
+(1, '2026-02-07 20:24:25', 'entrada', 10, 1, 2),
+(2, '2026-02-07 20:24:25', 'salida', 5, 2, 3),
+(3, '2026-02-07 20:24:25', 'ajuste', -2, 3, 1),
+(4, '2026-02-07 20:24:25', 'entrada', 20, 4, 5),
+(5, '2026-02-07 20:24:25', 'salida', 1, 5, 2);
+```
+
+### Movement Impact
+
+<CardGroup cols={3}>
+  <Card title="Movement #1" icon="1">
+    **Entrada**: +10 units of product #1 by employee #2
+  </Card>
+  <Card title="Movement #2" icon="2">
+    **Salida**: -5 units of product #2 by employee #3
+  </Card>
+  <Card title="Movement #3" icon="3">
+    **Ajuste**: -2 units of product #3 (correction) by employee #1
+  </Card>
+</CardGroup>
+
+## Employee Accountability
+
+Every movement requires an employee ID for audit purposes:
+
+### Employee Structure
+
+```sql
+CREATE TABLE `empleado` (
+  `id_empleado` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `puesto` varchar(20) NOT NULL
+);
+```
+
+### Example Employees
+
+| ID | Nombre | Puesto |
+|----|--------|--------|
+| 1 | Karina Sánchez | gerente |
+| 2 | Miguel Esparza | empleado |
+| 3 | Kennia De luna | gerente |
+| 4 | Mariana Juárez | gerente |
+| 5 | Guadalupe Hernández | empleado |
+
+<Info>
+  Employee tracking creates accountability for all inventory changes, which is critical for loss prevention and audit compliance.
+</Info>
+
+## Database Indexing
+
+The movements table includes optimized indexes:
+
+```sql
+ALTER TABLE `movimiento_stock`
+  ADD KEY `idx_movimiento_fecha` (`fecha`);
+```
+
+This index on the `fecha` field optimizes the default `ORDER BY fecha DESC` query used in the history view.
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Correct Type" icon="check">
+    Choose the appropriate movement type (entrada/salida/ajuste) for accurate reporting
+  </Card>
+  <Card title="Document Adjustments" icon="clipboard">
+    Use adjustments sparingly and document the reason for inventory corrections
+  </Card>
+  <Card title="Regular Audits" icon="magnifying-glass">
+    Review movement history regularly to identify patterns or discrepancies
+  </Card>
+  <Card title="Employee Training" icon="graduation-cap">
+    Ensure all employees understand when to record each movement type
+  </Card>
+</CardGroup>
+
+<Warning>
+  Stock movements directly modify the `stock_actual` field. Incorrect entries can lead to inventory discrepancies. Always verify quantities before submitting.
+</Warning>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Inventory Management" icon="box" href="/features/inventory-management">
+    View real-time stock levels affected by movements
+  </Card>
+  <Card title="Price Updates" icon="dollar-sign" href="/features/price-updates">
+    Track price changes with similar employee accountability
+  </Card>
+</CardGroup>

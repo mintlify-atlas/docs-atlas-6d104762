@@ -1,0 +1,301 @@
+---
+title: empleado Table
+description: Employee records table storing staff information and role assignments
+---
+
+## Overview
+
+The `empleado` table maintains employee records for staff members who perform operations within the system. It tracks basic employee information and role assignments, serving as a key audit trail component by linking employees to inventory movements, price updates, and product registrations.
+
+**Table Name:** `empleado`  
+**Engine:** InnoDB  
+**Character Set:** utf8mb4  
+**Primary Key:** `id_empleado`
+
+## Table Structure
+
+### Column Definitions
+
+<ParamField path="id_empleado" type="int(11)" required>
+  Primary key identifier for the employee. Auto-increments on insert.
+</ParamField>
+
+<ParamField path="nombre" type="varchar(100)" required>
+  Full name of the employee. Format: First name + Last name(s).
+</ParamField>
+
+<ParamField path="puesto" type="varchar(20)" required>
+  Job position or role. Values: "gerente" (manager) or "empleado" (employee/staff).
+</ParamField>
+
+## CREATE TABLE Statement
+
+```sql
+CREATE TABLE `empleado` (
+  `id_empleado` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `puesto` varchar(20) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `empleado`
+  ADD PRIMARY KEY (`id_empleado`);
+
+ALTER TABLE `empleado`
+  MODIFY `id_empleado` int(11) NOT NULL AUTO_INCREMENT;
+```
+
+## Indexes
+
+| Index Name | Type | Columns | Purpose |
+|------------|------|---------|----------|
+| `PRIMARY` | PRIMARY KEY | `id_empleado` | Unique identifier |
+
+## Foreign Key Relationships
+
+### Child Tables (Referencing)
+
+The `empleado` table is referenced by three operational tables, establishing accountability for all system transactions:
+
+<CardGroup cols={3}>
+  <Card title="movimiento_stock" icon="arrows-rotate" href="./movimiento-stock">
+    **Constraint:** `fk_mov_emp`  
+    Tracks which employee performed each stock movement
+  </Card>
+  
+  <Card title="actualizacion" icon="clock-rotate-left" href="./actualizacion">
+    **Constraint:** `fk_act_emp`  
+    Records which employee authorized each price change
+  </Card>
+  
+  <Card title="registro" icon="file-lines" href="./registro">
+    **Constraint:** `fk_reg_emp`  
+    Identifies which employee registered each new product
+  </Card>
+</CardGroup>
+
+## Sample Data
+
+```sql
+INSERT INTO `empleado` (`id_empleado`, `nombre`, `puesto`) VALUES
+(1, 'Karina Sánchez', 'gerente'),
+(2, 'Miguel Esparza', 'empleado'),
+(3, 'Kennia De luna', 'gerente'),
+(4, 'Mariana Juárez', 'gerente'),
+(5, 'Guadalupe Hernández', 'empleado');
+```
+
+### Employee Profiles
+
+<ResponseField name="Karina Sánchez (ID: 1)">
+  **Position:** Gerente (Manager)  
+  **Responsibilities:** Price updates, product registrations, inventory adjustments  
+  **Activity:** High volume of actualizaciones and registros
+</ResponseField>
+
+<ResponseField name="Miguel Esparza (ID: 2)">
+  **Position:** Empleado (Staff)  
+  **Responsibilities:** Stock entries, routine inventory movements  
+  **Activity:** Primarily entrada (stock receiving) operations
+</ResponseField>
+
+<ResponseField name="Kennia De luna (ID: 3)">
+  **Position:** Gerente (Manager)  
+  **Responsibilities:** Stock exits, sales transactions  
+  **Activity:** Focus on salida operations
+</ResponseField>
+
+<ResponseField name="Mariana Juárez (ID: 4)">
+  **Position:** Gerente (Manager)  
+  **Responsibilities:** Price management, inventory oversight  
+  **Activity:** Mix of updates and adjustments
+</ResponseField>
+
+<ResponseField name="Guadalupe Hernández (ID: 5)">
+  **Position:** Empleado (Staff)  
+  **Responsibilities:** Stock movements, routine operations  
+  **Activity:** General movimiento_stock transactions
+</ResponseField>
+
+## Role Types
+
+### Gerente (Manager)
+
+- **Authorization Level:** High
+- **Typical Operations:**
+  - Price updates (`actualizacion`)
+  - Inventory adjustments
+  - Product registrations
+  - Supplier management
+- **Count:** 3 managers in sample data
+
+### Empleado (Staff)
+
+- **Authorization Level:** Standard
+- **Typical Operations:**
+  - Stock entries (receiving)
+  - Stock exits (sales)
+  - Routine inventory movements
+- **Count:** 2 staff members in sample data
+
+## Common Queries
+
+### Employee Activity Summary
+
+```sql
+SELECT 
+    e.id_empleado,
+    e.nombre,
+    e.puesto,
+    COUNT(DISTINCT ms.id_movimiento) as movimientos_stock,
+    COUNT(DISTINCT a.id_actualizacion) as actualizaciones_precio,
+    COUNT(DISTINCT r.id_registro) as registros_producto
+FROM empleado e
+LEFT JOIN movimiento_stock ms ON e.id_empleado = ms.id_empleado
+LEFT JOIN actualizacion a ON e.id_empleado = a.id_empleado
+LEFT JOIN registro r ON e.id_empleado = r.id_empleado
+GROUP BY e.id_empleado, e.nombre, e.puesto
+ORDER BY e.nombre;
+```
+
+### Stock Movement Activity by Employee
+
+```sql
+SELECT 
+    e.nombre,
+    e.puesto,
+    ms.tipo_movimiento,
+    COUNT(*) as total_operaciones,
+    SUM(ms.cantidad) as unidades_movidas
+FROM empleado e
+INNER JOIN movimiento_stock ms ON e.id_empleado = ms.id_empleado
+GROUP BY e.id_empleado, e.nombre, e.puesto, ms.tipo_movimiento
+ORDER BY e.nombre, ms.tipo_movimiento;
+```
+
+### Recent Activity by Employee
+
+```sql
+SELECT 
+    e.nombre,
+    'Movimiento Stock' as tipo_operacion,
+    ms.fecha as fecha,
+    CONCAT(ms.tipo_movimiento, ' - ', ms.cantidad, ' unidades') as detalle
+FROM empleado e
+INNER JOIN movimiento_stock ms ON e.id_empleado = ms.id_empleado
+WHERE e.id_empleado = 1
+UNION ALL
+SELECT 
+    e.nombre,
+    'Actualización Precio' as tipo_operacion,
+    a.fecha as fecha,
+    CONCAT('$', a.precio_anterior, ' → $', a.precio_nuevo) as detalle
+FROM empleado e
+INNER JOIN actualizacion a ON e.id_empleado = a.id_empleado
+WHERE e.id_empleado = 1
+ORDER BY fecha DESC
+LIMIT 20;
+```
+
+### Manager Performance Report
+
+```sql
+SELECT 
+    e.nombre,
+    COUNT(DISTINCT a.id_actualizacion) as actualizaciones_autorizadas,
+    COUNT(DISTINCT ms.id_movimiento) as movimientos_supervisados,
+    COUNT(DISTINCT r.id_registro) as productos_registrados
+FROM empleado e
+LEFT JOIN actualizacion a ON e.id_empleado = a.id_empleado
+LEFT JOIN movimiento_stock ms ON e.id_empleado = ms.id_empleado
+LEFT JOIN registro r ON e.id_empleado = r.id_empleado
+WHERE e.puesto = 'gerente'
+GROUP BY e.id_empleado, e.nombre
+ORDER BY actualizaciones_autorizadas DESC;
+```
+
+### Employees by Role with Operation Counts
+
+```sql
+SELECT 
+    e.puesto,
+    COUNT(DISTINCT e.id_empleado) as total_empleados,
+    COUNT(ms.id_movimiento) as total_movimientos,
+    ROUND(COUNT(ms.id_movimiento) / COUNT(DISTINCT e.id_empleado), 2) as promedio_por_empleado
+FROM empleado e
+LEFT JOIN movimiento_stock ms ON e.id_empleado = ms.id_empleado
+GROUP BY e.puesto;
+```
+
+## Business Rules
+
+<Warning>
+  **Audit Trail Dependency:** Employee records should not be deleted if they are referenced in `movimiento_stock`, `actualizacion`, or `registro` tables due to foreign key constraints.
+</Warning>
+
+<Info>
+  **Role-Based Access:** The `puesto` field can be used to implement role-based access control (RBAC) in the application layer:
+  - `gerente`: Full access to price updates, registrations, and adjustments
+  - `empleado`: Limited to stock entries/exits
+</Info>
+
+<Tip>
+  **Activity Monitoring:** Employee records serve as the foundation for accountability. All operational tables require an `id_empleado` reference.
+</Tip>
+
+## Security Considerations
+
+<Warning>
+  **Missing Authentication Data:** This table stores only basic employee information. In a production system, you would need:
+  - Separate authentication table with username/password
+  - Email addresses for notifications
+  - Active/inactive status flags
+  - Role permissions matrix
+</Warning>
+
+## Extension Possibilities
+
+<Tip>
+  **Recommended Enhancements:**
+  - Add `email` field for notifications
+  - Add `telefono` field for contact information
+  - Add `fecha_contratacion` to track tenure
+  - Add `activo` boolean flag for active/inactive status
+  - Add `supervisor_id` for hierarchical reporting
+  - Create separate `puesto` lookup table for role management
+  - Add `created_at` and `updated_at` timestamps
+</Tip>
+
+## Usage in Application
+
+### Authorization Check
+
+```sql
+SELECT puesto 
+FROM empleado 
+WHERE id_empleado = ? 
+AND puesto = 'gerente';
+```
+
+### Employee Selection Dropdown
+
+```sql
+SELECT id_empleado, nombre, puesto
+FROM empleado
+ORDER BY puesto DESC, nombre ASC;
+```
+
+### Audit Trail Query
+
+```sql
+SELECT 
+    e.nombre as empleado,
+    p.nombre as producto,
+    ms.tipo_movimiento,
+    ms.cantidad,
+    ms.fecha
+FROM movimiento_stock ms
+INNER JOIN empleado e ON ms.id_empleado = e.id_empleado
+INNER JOIN prenda p ON ms.id_prenda = p.id_prenda
+WHERE ms.fecha >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+ORDER BY ms.fecha DESC;
+```

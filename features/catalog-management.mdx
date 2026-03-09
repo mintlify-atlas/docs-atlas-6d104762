@@ -1,0 +1,288 @@
+---
+title: 'Catalog Management'
+description: 'Manage product categories, colors, and sizes with inline editing'
+icon: 'tags'
+---
+
+## Overview
+
+The catalog management system provides centralized control over product attributes including categories, colors, and sizes. Each module features a sidebar form for creating new entries and an inline table with modal-based editing.
+
+<Info>
+  Categories, colors, and sizes are referenced by products through foreign keys, ensuring data consistency across the system.
+</Info>
+
+## Categories Module
+
+Manage product categories with descriptions (`categorias.php`).
+
+### Category Structure
+
+```sql
+CREATE TABLE `categoria` (
+  `id_categoria` int(11) NOT NULL,
+  `nombre` varchar(50) NOT NULL,
+  `descripcion` text DEFAULT NULL
+);
+```
+
+### Creating Categories
+
+The sidebar form allows quick category creation:
+
+```php
+if(isset($_POST['add'])){
+    $stmt = $conn->prepare("INSERT INTO categoria (nombre, descripcion) VALUES (?, ?)");
+    $stmt->execute([$_POST['nombre'], $_POST['descripcion']]);
+    header("Location: categorias.php?msg=creada");
+}
+```
+
+<Tabs>
+  <Tab title="Form Fields">
+    - **Nombre**: Category name (e.g., "Caballero", "Dama", "Infantil")
+    - **Descripción**: Optional detailed description of the category
+  </Tab>
+  <Tab title="Example Categories">
+    | ID | Nombre | Descripción |
+    |----|--------|-------------|
+    | 1 | Caballero | Ropa formal, informal, casual y de etiqueta para hombres |
+    | 2 | Dama | Vestidos, blusas y tendencias de temporada para mujeres |
+    | 3 | Infantil | Prendas cómodas y duraderas para niños de 2 a 12 años |
+    | 4 | Deportiva | Ropa técnica de alto rendimiento |
+    | 5 | Accesorios | Complementos como cinturones, bufandas y joyería básica |
+  </Tab>
+</Tabs>
+
+### Editing Categories
+
+Categories are edited through a Bootstrap modal:
+
+```php
+if(isset($_POST['update'])){
+    $stmt = $conn->prepare("UPDATE categoria SET nombre = ?, descripcion = ? WHERE id_categoria = ?");
+    $stmt->execute([$_POST['nombre'], $_POST['descripcion'], $_POST['id_categoria']]);
+    header("Location: categorias.php?msg=actualizada");
+}
+```
+
+**Modal Trigger Function:**
+
+```javascript
+function abrirEditar(id, nombre, descripcion) {
+    document.getElementById('edit_id').value = id;
+    document.getElementById('edit_nombre').value = nombre;
+    document.getElementById('edit_descripcion').value = descripcion;
+    
+    var myModal = new bootstrap.Modal(document.getElementById('modalEditarCat'));
+    myModal.show();
+}
+```
+
+<Note>
+  The JavaScript function uses `addslashes()` in PHP to escape quotes in descriptions, preventing XSS and JavaScript injection.
+</Note>
+
+## Colors Module
+
+Manage color options for products (`colores.php`).
+
+### Color Structure
+
+```sql
+CREATE TABLE `color` (
+  `id_color` int(11) NOT NULL,
+  `nombre` varchar(30) NOT NULL
+);
+```
+
+### Creating Colors
+
+```php
+if(isset($_POST['add'])){
+    $stmt = $conn->prepare("INSERT INTO color (nombre) VALUES (?)");
+    $stmt->execute([$_POST['nombre']]);
+    header("Location: colores.php?msg=creado");
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="Auto-Increment IDs" icon="hashtag">
+    Color IDs are automatically assigned by the database
+  </Card>
+  <Card title="Descriptive Names" icon="palette">
+    Use descriptive names like "Negro Nocturno" or "Azul Marino"
+  </Card>
+</CardGroup>
+
+### Example Color Data
+
+| ID | Nombre |
+|----|--------|
+| 1 | Negro Nocturno |
+| 2 | Blanco Pureza |
+| 3 | Azul Marino |
+| 4 | Rojo Pasión |
+| 5 | Gris Oxford |
+
+### Updating Colors
+
+```php
+if(isset($_POST['update'])){
+    $stmt = $conn->prepare("UPDATE color SET nombre = ? WHERE id_color = ?");
+    $stmt->execute([$_POST['nombre'], $_POST['id_color']]);
+    header("Location: colores.php?msg=actualizado");
+}
+```
+
+## Sizes Module
+
+Manage size options for clothing items (`tallas.php`).
+
+### Size Structure
+
+```sql
+CREATE TABLE `talla` (
+  `id_talla` int(11) NOT NULL,
+  `talla` varchar(10) NOT NULL
+);
+```
+
+### Creating Sizes
+
+```php
+if(isset($_POST['add'])){
+    $stmt = $conn->prepare("INSERT INTO talla (talla) VALUES (?)");
+    $stmt->execute([$_POST['talla']]);
+    header("Location: tallas.php?msg=creado");
+}
+```
+
+### Size Examples
+
+<Tabs>
+  <Tab title="Standard Sizes">
+    | ID | Talla |
+    |----|-------|
+    | 1 | ch (chica) |
+    | 2 | m (mediana) |
+    | 3 | g (grande) |
+    | 7 | ech (extra chica) |
+    | 8 | eg (extra grande) |
+  </Tab>
+  <Tab title="Display Format">
+    Sizes are displayed in uppercase in the UI:
+    ```php
+    echo "<option value='{$row['id_talla']}'>" . 
+         strtoupper($row['talla']) . 
+         "</option>";
+    ```
+  </Tab>
+</Tabs>
+
+### Updating Sizes
+
+```php
+if(isset($_POST['update'])){
+    $stmt = $conn->prepare("UPDATE talla SET talla = ? WHERE id_talla = ?");
+    $stmt->execute([$_POST['talla'], $_POST['id_talla']]);
+    header("Location: tallas.php?msg=actualizado");
+}
+```
+
+### Deleting Sizes
+
+The sizes module includes delete functionality with constraint handling:
+
+```php
+if(isset($_GET['delete'])){
+    try {
+        $stmt = $conn->prepare("DELETE FROM talla WHERE id_talla = ?");
+        $stmt->execute([$_GET['delete']]);
+        header("Location: tallas.php?msg=eliminado");
+    } catch (Exception $e) {
+        $error = "No se puede eliminar esta talla porque tiene registros de mercancía asociados.";
+    }
+}
+```
+
+<Warning>
+  Sizes cannot be deleted if they're referenced by existing products. Remove or reassign products first.
+</Warning>
+
+## Common UI Pattern
+
+All three catalog modules share a consistent layout:
+
+<Steps>
+  <Step title="Sidebar Form">
+    Left column (col-md-4) contains a form for creating new entries
+  </Step>
+  <Step title="Data Table">
+    Right column (col-md-8) displays existing records in a sortable table
+  </Step>
+  <Step title="Inline Actions">
+    Each row has an "Editar" button that opens a Bootstrap modal
+  </Step>
+  <Step title="Modal Editing">
+    Modal pre-fills with current data, allowing updates without page reload
+  </Step>
+</Steps>
+
+## Database Relationships
+
+Catalog tables are referenced by the main `prenda` table:
+
+```sql
+ALTER TABLE `prenda`
+  ADD CONSTRAINT `fk_prenda_cat` FOREIGN KEY (`id_categoria`) 
+      REFERENCES `categoria` (`id_categoria`),
+  ADD CONSTRAINT `fk_prenda_color` FOREIGN KEY (`id_color`) 
+      REFERENCES `color` (`id_color`),
+  ADD CONSTRAINT `fk_prenda_talla` FOREIGN KEY (`id_talla`) 
+      REFERENCES `talla` (`id_talla`);
+```
+
+<Info>
+  These foreign key constraints ensure referential integrity - you cannot assign a non-existent category, color, or size to a product.
+</Info>
+
+## Success Messages
+
+All modules use URL parameters for success feedback:
+
+| Parameter | Message Type | Example URL |
+|-----------|-------------|-------------|
+| `?msg=creada` | Category created | `categorias.php?msg=creada` |
+| `?msg=actualizada` | Category updated | `categorias.php?msg=actualizada` |
+| `?msg=creado` | Color/size created | `colores.php?msg=creado` |
+| `?msg=actualizado` | Color/size updated | `tallas.php?msg=actualizado` |
+| `?msg=eliminado` | Size deleted | `tallas.php?msg=eliminado` |
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Descriptive Names" icon="file-signature">
+    Use clear, descriptive names for categories and colors to improve user experience
+  </Card>
+  <Card title="Plan Ahead" icon="map">
+    Create all needed categories, colors, and sizes before adding products
+  </Card>
+  <Card title="Check References" icon="link">
+    Before deleting, verify no products reference the catalog item
+  </Card>
+  <Card title="Standard Sizes" icon="ruler">
+    Use consistent size notation (ch, m, g, ech, eg) across your inventory
+  </Card>
+</CardGroup>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Inventory Management" icon="box" href="/features/inventory-management">
+    Create products using the categories, colors, and sizes defined here
+  </Card>
+  <Card title="Product CRUD" icon="pen-to-square" href="/features/inventory-management#quick-actions">
+    Edit products and change their category, color, or size assignments
+  </Card>
+</CardGroup>

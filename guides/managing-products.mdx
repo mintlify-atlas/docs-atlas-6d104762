@@ -1,0 +1,370 @@
+---
+title: 'Managing Products'
+description: 'Learn how to create, edit, search, and delete products in the TiendaRopa inventory system'
+icon: 'box'
+---
+
+## Overview
+
+The product management system allows you to maintain your clothing inventory with detailed attributes including name, price, stock levels, category, size, and color. All product operations are accessible from the main inventory page.
+
+<Note>
+  Products are referred to as "prendas" (garments) in the system and are the core entities of your inventory.
+</Note>
+
+## Viewing the Inventory
+
+### Accessing the Product List
+
+Navigate to the main inventory page (`index.php`) to view all products in a sortable, searchable table.
+
+**Available columns:**
+- **ID** - Unique product identifier
+- **Nombre** - Product name
+- **Precio** - Current price in dollars
+- **Stock** - Current stock quantity
+- **Categoría** - Product category
+- **Talla** - Size (displayed in uppercase)
+- **Color** - Color name
+- **Acciones** - Edit and delete buttons
+
+### Sorting Products
+
+<Steps>
+  <Step title="Click any column header">
+    Click on any column header (ID, Nombre, Precio, Stock, Categoría, Talla, or Color) to sort by that column.
+  </Step>
+  
+  <Step title="Toggle sort direction">
+    Click the same header again to toggle between ascending (▲) and descending (▼) order.
+  </Step>
+  
+  <Step title="Sort indicator">
+    The active sort column displays an arrow indicator showing the current sort direction.
+  </Step>
+</Steps>
+
+<Tip>
+  The sort state is preserved in the URL using `?sort=column&order=asc` parameters, so you can bookmark specific views.
+</Tip>
+
+### Searching Products
+
+The search functionality allows you to quickly find products across multiple fields.
+
+<Steps>
+  <Step title="Enter search term">
+    Type your search term in the search box located at the top of the inventory page. You can search by:
+    - Product name
+    - Color
+    - Size
+    - Price
+    - Product ID (exact match)
+  </Step>
+  
+  <Step title="Click 'Buscar'">
+    Click the **Buscar** button to execute the search.
+  </Step>
+  
+  <Step title="View filtered results">
+    The table updates to show only matching products. If no results are found, you'll see: "No se encontraron prendas que coincidan con la búsqueda."
+  </Step>
+  
+  <Step title="Clear search (optional)">
+    Click the **Limpiar** button to return to the full inventory view.
+  </Step>
+</Steps>
+
+<Note>
+  Search maintains your current sort order. The search uses LIKE queries, so partial matches work (e.g., "cam" will find "Camisa Oxford").
+</Note>
+
+## Creating a New Product
+
+<Steps>
+  <Step title="Click 'Nueva Prenda'">
+    From the inventory page, click the **Nueva Prenda** button in the top-right corner to open the product creation form (`crear.php`).
+  </Step>
+  
+  <Step title="Fill in product details">
+    Complete all required fields:
+    
+    **Nombre del Producto** (required)
+    - Enter the product name (e.g., "Camisa Oxford")
+    - This is a text field with no character limit
+    
+    **Precio ($)** (required)
+    - Enter the price as a decimal number (e.g., 500.00)
+    - Accepts up to 2 decimal places
+    - Field type: `number` with `step="0.01"`
+    
+    **Stock Inicial** (required)
+    - Enter the initial stock quantity (default: 0)
+    - Must be a whole number
+    - You can update this later through stock operations
+  </Step>
+  
+  <Step title="Select product attributes">
+    Choose from the dropdown menus:
+    
+    **Categoría** (required)
+    - Select from existing categories (e.g., Camisas, Pantalones, Accesorios)
+    - Categories are managed in the Categories section
+    
+    **Talla** (required)
+    - Select from available sizes (displayed in uppercase)
+    - Common values: S, M, L, XL
+    - Sizes are managed in the catalog settings
+    
+    **Color** (required)
+    - Select from available colors
+    - Colors are managed in the catalog settings
+  </Step>
+  
+  <Step title="Save the product">
+    Click **Guardar Producto** to create the product, or **Cancelar** to return to the inventory without saving.
+  </Step>
+  
+  <Step title="Verify creation">
+    After successful creation, you'll be redirected to the inventory page where the new product appears in the table.
+  </Step>
+</Steps>
+
+<Warning>
+  All fields are required. The form will not submit if any field is empty.
+</Warning>
+
+### Database Operation
+
+```php
+INSERT INTO prenda (nombre, precio, stock_actual, id_categoria, id_talla, id_color) 
+VALUES (:nombre, :precio, :stock, :cat, :talla, :color)
+```
+
+## Editing an Existing Product
+
+<Steps>
+  <Step title="Locate the product">
+    Find the product you want to edit in the inventory table. Use search or sorting to locate it quickly.
+  </Step>
+  
+  <Step title="Click 'Editar'">
+    Click the **Editar** button in the Acciones column for that product. This opens the edit form (`editar.php?id=X`).
+  </Step>
+  
+  <Step title="Review current values">
+    The form loads with all current values pre-filled:
+    - Product name
+    - Current price
+    - Current stock level
+    - Selected category, size, and color
+  </Step>
+  
+  <Step title="Modify fields">
+    Update any fields you want to change:
+    
+    **Nombre del Producto**
+    - Edit the product name
+    
+    **Precio Actual ($)**
+    - Update the price
+    - <Warning>If you change the price, the system automatically creates a price history record</Warning>
+    
+    **Stock**
+    - Adjust stock quantity directly
+    - Note: For audited stock changes, use Stock Operations instead
+    
+    **Categoría, Talla, Color**
+    - Change any attribute using the dropdown menus
+  </Step>
+  
+  <Step title="Select the employee making changes">
+    **IMPORTANT:** Select your name from the "Empleado que realiza la modificación" dropdown.
+    
+    <Warning>
+      This field is required (red border). Employee tracking is essential for audit trails, especially for price changes.
+    </Warning>
+  </Step>
+  
+  <Step title="Save changes">
+    Click **Actualizar y Guardar Historial** to save all changes and create audit records, or **Volver** to cancel.
+  </Step>
+</Steps>
+
+### Price Change Tracking
+
+When you update a product's price:
+
+1. The system compares the new price with the previous price
+2. If different, it automatically inserts a record into the `actualizacion` table
+3. The record includes:
+   - Previous price
+   - New price
+   - Product ID
+   - Employee ID (who made the change)
+   - Timestamp
+
+<Tip>
+  View all price change history in the **Historial de Actualización de Precios** page (`actualizaciones.php`).
+</Tip>
+
+### Transaction Safety
+
+The edit operation uses database transactions for data integrity:
+
+```php
+$conn->beginTransaction();
+
+// If price changed, log it
+if ($nuevo_precio != $precio_anterior) {
+    INSERT INTO actualizacion ...
+}
+
+// Update product
+UPDATE prenda SET nombre=?, precio=?, stock_actual=?, 
+                  id_categoria=?, id_talla=?, id_color=? 
+WHERE id_prenda=?
+
+$conn->commit(); // Save all changes
+```
+
+If any error occurs, the entire operation is rolled back to prevent partial updates.
+
+## Deleting a Product
+
+<Warning>
+  Product deletion is permanent and cannot be undone. Use with caution.
+</Warning>
+
+<Steps>
+  <Step title="Locate the product">
+    Find the product you want to delete in the inventory table.
+  </Step>
+  
+  <Step title="Click 'Borrar'">
+    Click the **Borrar** button (red outline) in the Acciones column.
+  </Step>
+  
+  <Step title="Confirm deletion">
+    A browser confirmation dialog appears asking "¿Eliminar?"
+    - Click **OK** to proceed with deletion
+    - Click **Cancel** to abort
+  </Step>
+  
+  <Step title="Handle deletion result">
+    **Success:** The product is removed from the database and you're redirected to the inventory page.
+    
+    **Failure:** If the product has associated records (in `registro` or `actualizacion` tables), deletion will fail with an alert:
+    
+    > "No se puede eliminar: Esta prenda tiene registros asociados en otras tablas."
+  </Step>
+</Steps>
+
+### Why Deletion Might Fail
+
+Products cannot be deleted if they have:
+- Price change history (`actualizacion` table)
+- Merchandise reception records (`registro` table)
+- Stock movement records (`movimiento_stock` table)
+
+This is enforced by database foreign key constraints to maintain data integrity.
+
+<Tip>
+  **Alternative:** Instead of deleting products with history, consider setting their stock to 0 and marking them as discontinued in the product name (e.g., "[DISCONTINUED] Product Name").
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Search returns no results">
+    - Verify your search term spelling
+    - Try searching with fewer characters (partial matches work)
+    - Click **Limpiar** to reset and view all products
+    - Check that products exist in the database
+  </Accordion>
+  
+  <Accordion title="Cannot save product - form validation error">
+    - Ensure all required fields are filled
+    - Check that price is a valid decimal number (e.g., 500.00, not "500-")
+    - Verify stock is a whole number (no decimals)
+    - Make sure you've selected options from all dropdown menus
+  </Accordion>
+  
+  <Accordion title="Cannot edit product - missing employee selection">
+    The employee dropdown is required for audit purposes:
+    - Scroll down to find the "Empleado que realiza la modificación" field (red border)
+    - Select your name from the dropdown
+    - If your name isn't listed, contact an administrator to add you in Employee Management
+  </Accordion>
+  
+  <Accordion title="Cannot delete product - has associated records">
+    This is a database integrity protection:
+    - Products with price history cannot be deleted
+    - Products with stock movement records cannot be deleted
+    - Products with reception records cannot be deleted
+    
+    **Solution:** Instead of deleting, set stock to 0 and update the name to indicate it's discontinued.
+  </Accordion>
+  
+  <Accordion title="Price changes not being tracked">
+    Price history is only created when:
+    - The new price is different from the current price
+    - You selected an employee in the dropdown
+    - The transaction completed successfully
+    
+    Check the **Historial de Actualización de Precios** page to verify the record was created.
+  </Accordion>
+  
+  <Accordion title="Dropdowns are empty (no categories, sizes, or colors)">
+    If dropdowns show no options:
+    - These catalog items must be created first
+    - Go to **Categorías** to add categories
+    - Go to **Colores** to add colors  
+    - Go to **Tallas** to add sizes
+    - Return to product creation after setting up catalogs
+  </Accordion>
+</AccordionGroup>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Managing Categories" icon="folder-tree" href="/guides/managing-categories">
+    Learn how to create and organize product categories
+  </Card>
+  
+  <Card title="Stock Operations" icon="boxes-stacked" href="/guides/stock-operations">
+    Track inventory movements with entries, exits, and adjustments
+  </Card>
+  
+  <Card title="Managing Employees" icon="users" href="/guides/managing-employees">
+    Set up employee accounts for audit trail tracking
+  </Card>
+  
+  <Card title="Database Schema" icon="database" href="/database/overview">
+    Understand the underlying product data structure
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Use descriptive product names">
+    Include key details in the product name for easy searching (e.g., "Camisa Oxford Manga Larga" instead of just "Camisa").
+  </Step>
+  
+  <Step title="Set up catalogs first">
+    Before adding products, create all your categories, colors, and sizes to streamline product entry.
+  </Step>
+  
+  <Step title="Use stock operations for inventory changes">
+    While you can edit stock directly, using the Stock Operations module provides better audit trails.
+  </Step>
+  
+  <Step title="Always select the correct employee">
+    When editing products, always select the correct employee name for accurate audit trails, especially for price changes.
+  </Step>
+  
+  <Step title="Regular price reviews">
+    Periodically review the Price History page to ensure all price changes are legitimate and properly documented.
+  </Step>
+</Steps>

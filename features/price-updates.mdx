@@ -1,0 +1,416 @@
+---
+title: 'Price Updates'
+description: 'Automatic price history tracking with employee accountability and audit trail'
+icon: 'dollar-sign'
+---
+
+## Overview
+
+The price updates system automatically tracks all product price changes, creating a complete audit trail. When a product price is modified through the edit form, the system records the old and new prices, who made the change, and when it occurred.
+
+<Info>
+  Price tracking is automatic and transparent - no separate interface is needed. Updates are logged when products are edited via `editar.php`.
+</Info>
+
+## Database Structure
+
+```sql
+CREATE TABLE `actualizacion` (
+  `id_actualizacion` int(11) NOT NULL,
+  `fecha` datetime DEFAULT current_timestamp(),
+  `precio_anterior` decimal(10,2) NOT NULL,
+  `precio_nuevo` decimal(10,2) NOT NULL,
+  `id_prenda` int(11) NOT NULL,
+  `id_empleado` int(11) NOT NULL
+);
+```
+
+### Foreign Key Relationships
+
+```sql
+ALTER TABLE `actualizacion`
+  ADD CONSTRAINT `fk_act_prenda` FOREIGN KEY (`id_prenda`) 
+      REFERENCES `prenda` (`id_prenda`),
+  ADD CONSTRAINT `fk_act_emp` FOREIGN KEY (`id_empleado`) 
+      REFERENCES `empleado` (`id_empleado`);
+```
+
+<CardGroup cols={2}>
+  <Card title="Product Link" icon="link">
+    `id_prenda` links to the product being updated
+  </Card>
+  <Card title="Employee Link" icon="user">
+    `id_empleado` tracks who made the price change
+  </Card>
+</CardGroup>
+
+## Automatic Price Tracking
+
+Price updates are captured during the product edit workflow in `editar.php`:
+
+### Edit Form Process
+
+<Steps>
+  <Step title="Load Current Product Data">
+    The edit form retrieves the current product information, including the current price:
+    ```php
+    $stmt = $conn->prepare("SELECT * FROM prenda WHERE id_prenda = ?");
+    $stmt->execute([$id]);
+    $prenda = $stmt->fetch(PDO::FETCH_ASSOC);
+    ```
+  </Step>
+  <Step title="User Modifies Price">
+    The form displays the current price, which the user can modify:
+    ```php
+    <input type="number" step="0.01" name="precio" 
+           value="<?= $prenda['precio'] ?>" required>
+    <small class="text-muted">
+      Si cambias este valor, se generará un registro histórico.
+    </small>
+    ```
+  </Step>
+  <Step title="Employee Selection Required">
+    The form requires selecting the employee making the change:
+    ```php
+    <select name="id_empleado" class="form-select border-danger" required>
+        <option value="">-- Seleccione su nombre --</option>
+        <?php
+        $res = $conn->query("SELECT id_empleado, nombre FROM empleado");
+        while($row = $res->fetch()) {
+            echo "<option value='{$row['id_empleado']}'>{$row['nombre']}</option>";
+        }
+        ?>
+    </select>
+    ```
+  </Step>
+  <Step title="Price Change Detection">
+    On submit, the system compares old and new prices:
+    ```php
+    $nuevo_precio = $_POST['precio'];
+    $precio_anterior = $prenda['precio'];
+    ```
+  </Step>
+</Steps>
+
+### Transaction-Based Update
+
+The edit process uses database transactions for data integrity:
+
+```php
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $nuevo_precio = $_POST['precio'];
+    $precio_anterior = $prenda['precio'];
+    $id_empleado = $_POST['id_empleado'];
+
+    try {
+        $conn->beginTransaction();
+
+        // If price changed, log it to actualizacion table
+        if ($nuevo_precio != $precio_anterior) {
+            $sql_act = "INSERT INTO actualizacion 
+                        (precio_anterior, precio_nuevo, id_prenda, id_empleado) 
+                        VALUES (?, ?, ?, ?)";
+            $stmt_act = $conn->prepare($sql_act);
+            $stmt_act->execute([
+                $precio_anterior, 
+                $nuevo_precio, 
+                $id, 
+                $id_empleado
+            ]);
+        }
+
+        // Update the product with new data
+        $sql_upd = "UPDATE prenda 
+                    SET nombre=?, precio=?, stock_actual=?, 
+                        id_categoria=?, id_talla=?, id_color=? 
+                    WHERE id_prenda=?";
+        $conn->prepare($sql_upd)->execute([
+            $_POST['nombre'], $nuevo_precio, $_POST['stock'], 
+            $_POST['id_categoria'], $_POST['id_talla'], 
+            $_POST['id_color'], $id
+        ]);
+
+        $conn->commit();
+        header("Location: index.php");
+    } catch (Exception $e) {
+        $conn->rollBack();
+        echo "Error: " . $e->getMessage();
+    }
+}
+```
+
+<Note>
+  The transaction ensures that both the product update and price history record are saved atomically. If either operation fails, both are rolled back.
+</Note>
+
+### Price Change Detection Logic
+
+```php
+if ($nuevo_precio != $precio_anterior) {
+    // Only log if price actually changed
+    // Prevents duplicate records when other fields are updated
+}
+```
+
+<Tabs>
+  <Tab title="Price Changed">
+    When the price is modified:
+    1. Insert record into `actualizacion` table
+    2. Update `prenda` table with new price
+    3. Commit both changes together
+  </Tab>
+  <Tab title="Price Unchanged">
+    When only other fields are modified:
+    1. Skip `actualizacion` insert
+    2. Update `prenda` table only
+    3. No price history record created
+  </Tab>
+</Tabs>
+
+## Price History View
+
+The `actualizaciones.php` page displays all price changes:
+
+### History Query
+
+```php
+$sql = "SELECT a.*, p.nombre as p_nom, e.nombre as e_nom 
+        FROM actualizacion a 
+        JOIN prenda p ON a.id_prenda = p.id_prenda 
+        JOIN empleado e ON a.id_empleado = e.id_empleado 
+        ORDER BY fecha DESC";
+```
+
+This query:
+- Joins with `prenda` to show product names
+- Joins with `empleado` to show who made the change
+- Orders by date descending (newest first)
+
+### Table Display
+
+```php
+<table class="table table-bordered bg-white shadow-sm mt-3">
+    <thead class="table-warning">
+        <tr>
+            <th>Fecha</th>
+            <th>Prenda</th>
+            <th>Precio Anterior</th>
+            <th>Precio Nuevo</th>
+            <th>Empleado</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php
+        $res = $conn->query($sql);
+        while($row = $res->fetch()){
+            echo "<tr>
+                    <td>{$row['fecha']}</td>
+                    <td>{$row['p_nom']}</td>
+                    <td><s>\${$row['precio_anterior']}</s></td>
+                    <td class='text-success fw-bold'>\${$row['precio_nuevo']}</td>
+                    <td>{$row['e_nom']}</td>
+                  </tr>";
+        }
+        ?>
+    </tbody>
+</table>
+```
+
+### Visual Design Elements
+
+<CardGroup cols={3}>
+  <Card title="Old Price" icon="strikethrough">
+    Previous price shown with strikethrough styling (`<s>` tag)
+  </Card>
+  <Card title="New Price" icon="dollar-sign">
+    New price displayed in **bold green** (text-success fw-bold)
+  </Card>
+  <Card title="Warning Header" icon="triangle-exclamation">
+    Table header uses yellow (table-warning) to highlight audit importance
+  </Card>
+</CardGroup>
+
+## Example Price History Data
+
+Real examples from the system:
+
+```sql
+INSERT INTO `actualizacion` VALUES
+(1, '2026-02-07 20:24:25', 420.00, 450.00, 1, 1),
+(2, '2026-02-07 20:24:25', 600.00, 650.50, 2, 4),
+(3, '2026-02-07 20:24:25', 1100.00, 1200.00, 3, 1),
+(4, '2026-02-07 20:24:25', 320.00, 350.00, 4, 4),
+(5, '2026-02-07 20:24:25', 380.00, 400.00, 5, 1),
+(6, '2026-02-18 21:55:06', 1200.00, 1350.00, 3, 1);
+```
+
+### Price Change Analysis
+
+<Tabs>
+  <Tab title="Update #1">
+    **Camisa Oxford Slim** (Product #1)
+    - Old: $420.00
+    - New: $450.00
+    - Change: +$30.00 (+7.1%)
+    - By: Karina Sánchez (Employee #1)
+  </Tab>
+  <Tab title="Update #2">
+    **Pantalón Jean Clásico** (Product #2)
+    - Old: $600.00
+    - New: $650.50
+    - Change: +$50.50 (+8.4%)
+    - By: Mariana Juárez (Employee #4)
+  </Tab>
+  <Tab title="Update #6">
+    **Vestido de Gala Rojo** (Product #3)
+    - Old: $1200.00
+    - New: $1350.00
+    - Change: +$150.00 (+12.5%)
+    - By: Karina Sánchez (Employee #1)
+    - Note: Second price increase for this product
+  </Tab>
+</Tabs>
+
+## Employee Accountability
+
+The system requires employee identification for every price change:
+
+### Required Employee Selection
+
+```php
+<div class="mb-3">
+    <label class="form-label text-danger fw-bold">
+        Empleado que realiza la modificación *
+    </label>
+    <select name="id_empleado" class="form-select border-danger" required>
+        <option value="">-- Seleccione su nombre --</option>
+        <!-- Employee options populated from database -->
+    </select>
+</div>
+```
+
+<Warning>
+  The employee field is required and highlighted in red to emphasize its importance for audit compliance.
+</Warning>
+
+## Workflow Integration
+
+Price tracking integrates seamlessly with the product edit workflow:
+
+<Steps>
+  <Step title="Navigate to Edit">
+    Click "Editar" button in inventory table → redirects to `editar.php?id=X`
+  </Step>
+  <Step title="Load Current Data">
+    Form pre-fills with current product data including price
+  </Step>
+  <Step title="Modify Price">
+    User changes price in the precio field (step 0.01 for cents)
+  </Step>
+  <Step title="Select Employee">
+    Required dropdown selection of employee making the change
+  </Step>
+  <Step title="Submit Changes">
+    Click "Actualizar y Guardar Historial" button
+  </Step>
+  <Step title="Automatic Logging">
+    System detects price change and creates audit record
+  </Step>
+  <Step title="Transaction Commit">
+    Both product update and price history saved atomically
+  </Step>
+  <Step title="Redirect">
+    Returns to inventory view with updated price displayed
+  </Step>
+</Steps>
+
+## Audit Trail Benefits
+
+<CardGroup cols={2}>
+  <Card title="Price History" icon="clock-rotate-left">
+    Complete record of all price changes over time
+  </Card>
+  <Card title="Employee Tracking" icon="user-check">
+    Know exactly who authorized each price change
+  </Card>
+  <Card title="Trend Analysis" icon="chart-line">
+    Analyze pricing patterns and frequency of changes
+  </Card>
+  <Card title="Compliance" icon="shield-check">
+    Meet audit requirements with automatic documentation
+  </Card>
+</CardGroup>
+
+## Decimal Precision
+
+Prices use `DECIMAL(10,2)` format:
+
+```sql
+`precio_anterior` decimal(10,2) NOT NULL,
+`precio_nuevo` decimal(10,2) NOT NULL,
+```
+
+- **10 digits total**: Maximum price is 99,999,999.99
+- **2 decimal places**: Cent-level precision
+- **Fixed-point**: No floating-point rounding errors
+
+<Info>
+  The HTML form uses `step="0.01"` to allow cent-level input matching the database precision.
+</Info>
+
+## Transaction Safety
+
+The `BEGIN TRANSACTION` / `COMMIT` / `ROLLBACK` pattern ensures:
+
+<Tabs>
+  <Tab title="Success Case">
+    Both operations succeed:
+    ```php
+    $conn->beginTransaction();
+    // Insert into actualizacion ✓
+    // Update prenda ✓
+    $conn->commit(); // Both saved
+    ```
+  </Tab>
+  <Tab title="Failure Case">
+    Either operation fails:
+    ```php
+    $conn->beginTransaction();
+    // Insert into actualizacion ✓
+    // Update prenda ✗ (error)
+    $conn->rollBack(); // Both cancelled
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+  Without transactions, a failure after the price history insert but before the product update would leave inconsistent data.
+</Warning>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Document Changes" icon="file-pen">
+    Train staff to note reasons for price changes in external documentation
+  </Card>
+  <Card title="Approval Process" icon="user-shield">
+    Establish which employees (gerente vs empleado) can modify prices
+  </Card>
+  <Card title="Regular Reviews" icon="calendar-check">
+    Review price history monthly to identify unusual patterns
+  </Card>
+  <Card title="Competitor Analysis" icon="scale-balanced">
+    Use historical data to track competitive positioning over time
+  </Card>
+</CardGroup>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Inventory Management" icon="box" href="/features/inventory-management">
+    Edit products through the main inventory interface
+  </Card>
+  <Card title="Stock Movements" icon="truck" href="/features/stock-movements">
+    Track inventory changes with similar employee accountability
+  </Card>
+</CardGroup>

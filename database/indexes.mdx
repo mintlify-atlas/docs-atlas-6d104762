@@ -1,0 +1,417 @@
+---
+title: Database Indexes
+description: Index definitions and performance optimization in TiendaRopa database
+---
+
+## Overview
+
+Indexes are critical for query performance in the TiendaRopa database. This page documents all indexes defined in the schema, their purposes, and which queries benefit from them.
+
+## Index Strategy
+
+The database uses a combination of:
+- **Primary key indexes** for unique identification
+- **Foreign key indexes** for join performance
+- **Composite indexes** for multi-column queries
+- **Single-column indexes** for common search patterns
+- **Unique indexes** for data integrity
+
+## Primary Key Indexes
+
+All tables have primary key indexes for unique row identification and fast lookups.
+
+### actualizacion Table
+
+```sql
+ALTER TABLE `actualizacion`
+  ADD PRIMARY KEY (`id_actualizacion`);
+```
+
+**Purpose:** Uniquely identify each price update record.
+
+**Benefits:**
+- Fast lookup of specific price updates
+- Ensures no duplicate update records
+- Enables efficient joins when querying update history
+
+### categoria Table
+
+```sql
+ALTER TABLE `categoria`
+  ADD PRIMARY KEY (`id_categoria`);
+```
+
+**Purpose:** Uniquely identify each category.
+
+**Benefits:**
+- Fast joins with `prenda` table
+- Quick category lookups by ID
+
+### color Table
+
+```sql
+ALTER TABLE `color`
+  ADD PRIMARY KEY (`id_color`);
+```
+
+**Purpose:** Uniquely identify each color.
+
+**Benefits:**
+- Fast joins with `prenda` table
+- Quick color lookups by ID
+
+### empleado Table
+
+```sql
+ALTER TABLE `empleado`
+  ADD PRIMARY KEY (`id_empleado`);
+```
+
+**Purpose:** Uniquely identify each employee.
+
+**Benefits:**
+- Fast joins with `actualizacion`, `movimiento_stock`, and `registro`
+- Quick employee lookups by ID
+
+### movimiento_stock Table
+
+```sql
+ALTER TABLE `movimiento_stock`
+  ADD PRIMARY KEY (`id_movimiento`);
+```
+
+**Purpose:** Uniquely identify each stock movement.
+
+**Benefits:**
+- Fast lookup of specific stock movements
+- Ensures no duplicate movement records
+
+### prenda Table
+
+```sql
+ALTER TABLE `prenda`
+  ADD PRIMARY KEY (`id_prenda`);
+```
+
+**Purpose:** Uniquely identify each garment.
+
+**Benefits:**
+- Fast garment lookups by ID
+- Enables efficient joins with all operational tables
+- Core index for most database queries
+
+### proveedor Table
+
+```sql
+ALTER TABLE `proveedor`
+  ADD PRIMARY KEY (`id_proveedor`);
+```
+
+**Purpose:** Uniquely identify each supplier.
+
+**Benefits:**
+- Fast joins with `registro` table
+- Quick supplier lookups by ID
+
+### registro Table
+
+```sql
+ALTER TABLE `registro`
+  ADD PRIMARY KEY (`id_registro`);
+```
+
+**Purpose:** Uniquely identify each registration record.
+
+**Benefits:**
+- Fast lookup of specific registrations
+- Ensures no duplicate registration records
+
+### talla Table
+
+```sql
+ALTER TABLE `talla`
+  ADD PRIMARY KEY (`id_talla`);
+```
+
+**Purpose:** Uniquely identify each size.
+
+**Benefits:**
+- Fast joins with `prenda` table
+- Quick size lookups by ID
+
+## Foreign Key Indexes
+
+Indexes on foreign key columns improve join performance and referential integrity checks.
+
+### actualizacion Foreign Key Indexes
+
+```sql
+ALTER TABLE `actualizacion`
+  ADD KEY `fk_act_prenda` (`id_prenda`),
+  ADD KEY `fk_act_emp` (`id_empleado`);
+```
+
+**Purpose:**
+- `fk_act_prenda`: Find all price updates for a specific garment
+- `fk_act_emp`: Find all price updates performed by a specific employee
+
+**Optimized Queries:**
+```sql
+-- Find all price updates for a garment (uses fk_act_prenda)
+SELECT * FROM actualizacion WHERE id_prenda = 1;
+
+-- Find all updates by an employee (uses fk_act_emp)
+SELECT * FROM actualizacion WHERE id_empleado = 1;
+```
+
+### movimiento_stock Foreign Key Indexes
+
+```sql
+ALTER TABLE `movimiento_stock`
+  ADD KEY `fk_mov_prenda` (`id_prenda`),
+  ADD KEY `fk_mov_emp` (`id_empleado`);
+```
+
+**Purpose:**
+- `fk_mov_prenda`: Find all stock movements for a specific garment
+- `fk_mov_emp`: Find all stock movements performed by a specific employee
+
+**Optimized Queries:**
+```sql
+-- Find all stock movements for a garment (uses fk_mov_prenda)
+SELECT * FROM movimiento_stock WHERE id_prenda = 1;
+
+-- Find all movements by an employee (uses fk_mov_emp)
+SELECT * FROM movimiento_stock WHERE id_empleado = 1;
+```
+
+### prenda Foreign Key Indexes
+
+```sql
+ALTER TABLE `prenda`
+  ADD KEY `fk_prenda_talla` (`id_talla`),
+  ADD KEY `fk_prenda_color` (`id_color`);
+```
+
+**Purpose:**
+- `fk_prenda_talla`: Find all garments of a specific size
+- `fk_prenda_color`: Find all garments of a specific color
+
+**Optimized Queries:**
+```sql
+-- Find all garments in a specific size (uses fk_prenda_talla)
+SELECT * FROM prenda WHERE id_talla = 2;
+
+-- Find all garments in a specific color (uses fk_prenda_color)
+SELECT * FROM prenda WHERE id_color = 1;
+```
+
+### registro Foreign Key Indexes
+
+```sql
+ALTER TABLE `registro`
+  ADD KEY `fk_reg_prenda` (`id_prenda`),
+  ADD KEY `fk_reg_emp` (`id_empleado`),
+  ADD KEY `fk_reg_prov` (`id_proveedor`);
+```
+
+**Purpose:**
+- `fk_reg_prenda`: Find registration records for a specific garment
+- `fk_reg_emp`: Find all registrations performed by a specific employee
+- `fk_reg_prov`: Find all garments supplied by a specific supplier
+
+**Optimized Queries:**
+```sql
+-- Find registration for a garment (uses fk_reg_prenda)
+SELECT * FROM registro WHERE id_prenda = 1;
+
+-- Find all registrations by an employee (uses fk_reg_emp)
+SELECT * FROM registro WHERE id_empleado = 1;
+
+-- Find all garments from a supplier (uses fk_reg_prov)
+SELECT * FROM registro WHERE id_proveedor = 1;
+```
+
+## Special Purpose Indexes
+
+These indexes optimize specific query patterns and business operations.
+
+### Date-Based Queries: idx_movimiento_fecha
+
+```sql
+ALTER TABLE `movimiento_stock`
+  ADD KEY `idx_movimiento_fecha` (`fecha`);
+```
+
+**Purpose:** Optimize queries that filter or sort stock movements by date.
+
+**Optimized Queries:**
+```sql
+-- Find movements in a date range (uses idx_movimiento_fecha)
+SELECT * FROM movimiento_stock 
+WHERE fecha BETWEEN '2026-01-01' AND '2026-01-31'
+ORDER BY fecha DESC;
+
+-- Recent movements (uses idx_movimiento_fecha)
+SELECT * FROM movimiento_stock 
+ORDER BY fecha DESC 
+LIMIT 10;
+
+-- Daily stock activity report (uses idx_movimiento_fecha)
+SELECT DATE(fecha) AS dia, tipo_movimiento, COUNT(*) AS total
+FROM movimiento_stock
+WHERE fecha >= '2026-01-01'
+GROUP BY DATE(fecha), tipo_movimiento;
+```
+
+### Name Search: idx_prenda_nombre
+
+```sql
+ALTER TABLE `prenda`
+  ADD KEY `idx_prenda_nombre` (`nombre`);
+```
+
+**Purpose:** Optimize garment searches by name.
+
+**Optimized Queries:**
+```sql
+-- Exact name search (uses idx_prenda_nombre)
+SELECT * FROM prenda WHERE nombre = 'Camisa Oxford Slim';
+
+-- Prefix search (uses idx_prenda_nombre)
+SELECT * FROM prenda WHERE nombre LIKE 'Camisa%';
+
+-- Alphabetical sorting (uses idx_prenda_nombre)
+SELECT * FROM prenda ORDER BY nombre;
+```
+
+**Note:** The index supports prefix searches (`LIKE 'prefix%'`) but not infix searches (`LIKE '%substring%'`).
+
+### Composite Index: idx_prenda_cat_talla
+
+```sql
+ALTER TABLE `prenda`
+  ADD KEY `idx_prenda_cat_talla` (`id_categoria`,`id_talla`);
+```
+
+**Purpose:** Optimize queries that filter garments by both category and size.
+
+**Optimized Queries:**
+```sql
+-- Find garments by category and size (uses idx_prenda_cat_talla)
+SELECT * FROM prenda 
+WHERE id_categoria = 1 AND id_talla = 2;
+
+-- Find garments by category only (uses idx_prenda_cat_talla)
+SELECT * FROM prenda WHERE id_categoria = 1;
+
+-- Category-based inventory summary (uses idx_prenda_cat_talla)
+SELECT id_categoria, id_talla, COUNT(*) AS total, SUM(stock_actual) AS stock
+FROM prenda
+GROUP BY id_categoria, id_talla;
+```
+
+**Index Column Order:** The index is ordered by `id_categoria` first, then `id_talla`. This means:
+- Queries filtering by `id_categoria` alone can use this index
+- Queries filtering by `id_talla` alone cannot use this index efficiently
+- Queries filtering by both columns get optimal performance
+
+## Unique Indexes
+
+Unique indexes enforce data integrity constraints beyond primary keys.
+
+### proveedor Telephone Uniqueness
+
+```sql
+ALTER TABLE `proveedor`
+  ADD UNIQUE KEY `telefono` (`telefono`);
+```
+
+**Purpose:** Ensure no two suppliers have the same phone number.
+
+**Benefits:**
+- Prevents duplicate supplier entries
+- Fast lookups by phone number
+- Data integrity enforcement at the database level
+
+**Optimized Queries:**
+```sql
+-- Find supplier by phone (uses telefono unique index)
+SELECT * FROM proveedor WHERE telefono = '4499156551';
+```
+
+## Index Maintenance
+
+### Automatic Maintenance
+
+MariaDB/MySQL automatically maintains indexes when:
+- Inserting new rows
+- Updating indexed columns
+- Deleting rows
+
+### Performance Considerations
+
+**Indexes improve:**
+- SELECT queries with WHERE clauses on indexed columns
+- JOIN operations on indexed foreign keys
+- ORDER BY clauses on indexed columns
+- GROUP BY operations on indexed columns
+
+**Indexes add overhead to:**
+- INSERT operations (must update all indexes)
+- UPDATE operations on indexed columns
+- DELETE operations (must update all indexes)
+
+### Best Practices
+
+1. **Use indexes for frequent queries** - The indexes in this schema are optimized for common operations
+2. **Foreign keys are automatically indexed** - All FK columns have indexes for join performance
+3. **Composite indexes follow query patterns** - `idx_prenda_cat_talla` matches common search criteria
+4. **Date indexes for time-based queries** - `idx_movimiento_fecha` optimizes reports and audits
+
+## Query Performance Tips
+
+### Leveraging Indexes Effectively
+
+**Good: Uses idx_prenda_cat_talla**
+```sql
+SELECT * FROM prenda 
+WHERE id_categoria = 1 AND id_talla = 2;
+```
+
+**Good: Uses fk_mov_prenda and idx_movimiento_fecha**
+```sql
+SELECT * FROM movimiento_stock 
+WHERE id_prenda = 1 
+AND fecha >= '2026-01-01'
+ORDER BY fecha DESC;
+```
+
+**Suboptimal: Cannot use idx_prenda_nombre for infix search**
+```sql
+-- This requires full table scan
+SELECT * FROM prenda WHERE nombre LIKE '%Oxford%';
+
+-- Better: Use prefix search when possible
+SELECT * FROM prenda WHERE nombre LIKE 'Camisa%';
+```
+
+### Analyzing Query Performance
+
+Use EXPLAIN to verify index usage:
+
+```sql
+EXPLAIN SELECT * FROM prenda 
+WHERE id_categoria = 1 AND id_talla = 2;
+```
+
+Look for:
+- `type: ref` or `type: range` (good - using index)
+- `type: ALL` (bad - full table scan)
+- `key: idx_prenda_cat_talla` (confirms index usage)
+
+## Related Pages
+
+- [Database Schema](/database/overview) - Complete schema structure
+- [Database Relationships](/database/relationships) - Foreign key relationships
+- [Tables Reference](/database/tables/prenda) - Detailed table documentation

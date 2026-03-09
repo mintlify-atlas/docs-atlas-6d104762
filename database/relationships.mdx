@@ -1,0 +1,227 @@
+---
+title: Database Relationships
+description: Foreign key relationships and table connections in TiendaRopa database
+---
+
+## Overview
+
+The TiendaRopa database uses foreign key constraints to maintain referential integrity between tables. This page documents all relationships, their cascade behaviors, and how tables connect to form the complete data model.
+
+## Relationship Diagram
+
+The database follows a relational model with the following key connections:
+
+```
+prenda (core entity)
+├── → categoria (id_categoria)
+├── → talla (id_talla)
+└── → color (id_color)
+
+actualizacion
+├── → prenda (id_prenda)
+└── → empleado (id_empleado)
+
+movimiento_stock
+├── → prenda (id_prenda)
+└── → empleado (id_empleado)
+
+registro
+├── → prenda (id_prenda)
+├── → empleado (id_empleado)
+└── → proveedor (id_proveedor)
+```
+
+## Foreign Key Constraints
+
+### prenda Table Relationships
+
+The `prenda` table is the core entity that connects to three catalog tables:
+
+```sql
+ALTER TABLE `prenda`
+  ADD CONSTRAINT `fk_prenda_cat` FOREIGN KEY (`id_categoria`) REFERENCES `categoria` (`id_categoria`),
+  ADD CONSTRAINT `fk_prenda_color` FOREIGN KEY (`id_color`) REFERENCES `color` (`id_color`),
+  ADD CONSTRAINT `fk_prenda_talla` FOREIGN KEY (`id_talla`) REFERENCES `talla` (`id_talla`);
+```
+
+**Relationships:**
+- **prenda → categoria**: Each garment belongs to exactly one category (Caballero, Dama, Infantil, Deportiva, Accesorios)
+- **prenda → talla**: Each garment has a specific size (ch, m, g, ech, eg)
+- **prenda → color**: Each garment variant has a specific color (Negro Nocturno, Blanco Pureza, etc.)
+
+**Cascade Behavior:** None specified - default RESTRICT behavior prevents deletion of referenced catalog records.
+
+### actualizacion Table Relationships
+
+The `actualizacion` table tracks price changes for garments:
+
+```sql
+ALTER TABLE `actualizacion`
+  ADD CONSTRAINT `fk_act_emp` FOREIGN KEY (`id_empleado`) REFERENCES `empleado` (`id_empleado`),
+  ADD CONSTRAINT `fk_act_prenda` FOREIGN KEY (`id_prenda`) REFERENCES `prenda` (`id_prenda`);
+```
+
+**Relationships:**
+- **actualizacion → prenda**: Links each price update to a specific garment
+- **actualizacion → empleado**: Records which employee performed the price update
+
+**Cascade Behavior:** None specified - prevents deletion of garments or employees with existing price history.
+
+### movimiento_stock Table Relationships
+
+The `movimiento_stock` table records inventory movements:
+
+```sql
+ALTER TABLE `movimiento_stock`
+  ADD CONSTRAINT `fk_mov_emp` FOREIGN KEY (`id_empleado`) REFERENCES `empleado` (`id_empleado`),
+  ADD CONSTRAINT `fk_mov_prenda` FOREIGN KEY (`id_prenda`) REFERENCES `prenda` (`id_prenda`);
+```
+
+**Relationships:**
+- **movimiento_stock → prenda**: Links each stock movement to a specific garment
+- **movimiento_stock → empleado**: Records which employee performed the stock operation
+
+**Cascade Behavior:** None specified - maintains complete audit trail of all stock movements.
+
+### registro Table Relationships
+
+The `registro` table connects garments with their suppliers and the employees who registered them:
+
+```sql
+ALTER TABLE `registro`
+  ADD CONSTRAINT `fk_reg_emp` FOREIGN KEY (`id_empleado`) REFERENCES `empleado` (`id_empleado`),
+  ADD CONSTRAINT `fk_reg_prenda` FOREIGN KEY (`id_prenda`) REFERENCES `prenda` (`id_prenda`),
+  ADD CONSTRAINT `fk_reg_prov` FOREIGN KEY (`id_proveedor`) REFERENCES `proveedor` (`id_proveedor`);
+```
+
+**Relationships:**
+- **registro → prenda**: Links registration record to a specific garment
+- **registro → empleado**: Records which employee registered the garment
+- **registro → proveedor**: Identifies the supplier of the garment
+
+**Cascade Behavior:** None specified - preserves supplier and registration history.
+
+## Relationship Details by Table
+
+### Central Tables
+
+#### prenda (Garment)
+The central table that most operations reference.
+
+**Outgoing relationships:**
+- References `categoria` for garment classification
+- References `talla` for size information
+- References `color` for color variants
+
+**Incoming relationships:**
+- Referenced by `actualizacion` for price history
+- Referenced by `movimiento_stock` for inventory movements
+- Referenced by `registro` for supplier information
+
+#### empleado (Employee)
+Tracks employee involvement in various operations.
+
+**Incoming relationships:**
+- Referenced by `actualizacion` to track who updated prices
+- Referenced by `movimiento_stock` to track who performed stock operations
+- Referenced by `registro` to track who registered new garments
+
+### Catalog Tables
+
+These tables define the attributes of garments:
+
+#### categoria (Category)
+- Referenced by `prenda` to classify garments
+- Contains: Caballero, Dama, Infantil, Deportiva, Accesorios
+
+#### talla (Size)
+- Referenced by `prenda` to specify garment sizes
+- Contains: ch (chico), m (mediano), g (grande), ech (extra chico), eg (extra grande)
+
+#### color (Color)
+- Referenced by `prenda` to specify color variants
+- Contains: Negro Nocturno, Blanco Pureza, Azul Marino, Rojo Pasión, Gris Oxford
+
+### Operational Tables
+
+#### proveedor (Supplier)
+- Referenced by `registro` to track garment suppliers
+- Contains local Aguascalientes textile suppliers
+
+## Data Integrity Rules
+
+### Referential Integrity
+
+All foreign key constraints use the default RESTRICT behavior:
+
+- **Cannot delete** a `categoria`, `talla`, or `color` that is referenced by existing garments
+- **Cannot delete** a `prenda` that has price updates, stock movements, or registration records
+- **Cannot delete** an `empleado` who has performed any recorded operations
+- **Cannot delete** a `proveedor` that has supplied registered garments
+
+### Best Practices
+
+1. **Before deleting catalog records** (categoria, talla, color), verify no garments reference them
+2. **Before deleting garments**, check for related records in actualizacion, movimiento_stock, and registro
+3. **Before deleting employees**, ensure they have no historical records
+4. **Maintain referential integrity** by creating parent records (categories, sizes, colors) before creating garments
+
+## Query Examples
+
+### Find All Relationships for a Garment
+
+```sql
+-- Get complete garment information with all relationships
+SELECT 
+    p.id_prenda,
+    p.nombre,
+    c.nombre AS categoria,
+    t.talla,
+    col.nombre AS color,
+    p.precio,
+    p.stock_actual
+FROM prenda p
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+INNER JOIN talla t ON p.id_talla = t.id_talla
+INNER JOIN color col ON p.id_color = col.id_color
+WHERE p.id_prenda = 1;
+```
+
+### Find All Operations for a Garment
+
+```sql
+-- Get price updates
+SELECT a.fecha, a.precio_anterior, a.precio_nuevo, e.nombre AS empleado
+FROM actualizacion a
+INNER JOIN empleado e ON a.id_empleado = e.id_empleado
+WHERE a.id_prenda = 1;
+
+-- Get stock movements
+SELECT m.fecha, m.tipo_movimiento, m.cantidad, e.nombre AS empleado
+FROM movimiento_stock m
+INNER JOIN empleado e ON m.id_empleado = e.id_empleado
+WHERE m.id_prenda = 1;
+
+-- Get supplier information
+SELECT r.fecha_registro, pr.nombre AS proveedor, e.nombre AS empleado
+FROM registro r
+INNER JOIN proveedor pr ON r.id_proveedor = pr.id_proveedor
+INNER JOIN empleado e ON r.id_empleado = e.id_empleado
+WHERE r.id_prenda = 1;
+```
+
+### Check for Dependent Records Before Deletion
+
+```sql
+-- Check if a garment can be safely deleted
+SELECT 
+    (SELECT COUNT(*) FROM actualizacion WHERE id_prenda = 1) AS price_updates,
+    (SELECT COUNT(*) FROM movimiento_stock WHERE id_prenda = 1) AS stock_movements,
+    (SELECT COUNT(*) FROM registro WHERE id_prenda = 1) AS registrations;
+```
+
+## Related Pages
+
+- [Database Schema](/database/overview) - Complete schema structure
+- [Database Indexes](/database/indexes) - Index definitions and performance optimization
+- [Tables Reference](/database/tables/prenda) - Detailed table documentation

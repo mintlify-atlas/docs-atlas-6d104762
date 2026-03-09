@@ -1,0 +1,249 @@
+---
+title: prenda Table
+description: Core product catalog table storing clothing items with pricing, inventory, and variant information
+---
+
+## Overview
+
+The `prenda` table is the central entity in the TiendaRopa database, representing individual clothing products. Each record stores a unique combination of product name, category, size, and color, along with current pricing and stock levels.
+
+**Table Name:** `prenda`  
+**Engine:** InnoDB  
+**Character Set:** utf8mb4  
+**Primary Key:** `id_prenda`
+
+## Table Structure
+
+### Column Definitions
+
+<ParamField path="id_prenda" type="int(11)" required>
+  Primary key identifier for the garment. Auto-increments on insert.
+</ParamField>
+
+<ParamField path="nombre" type="varchar(100)" required>
+  Product name or description. Examples: "Camisa Oxford Slim", "Vestido de Gala Rojo"
+</ParamField>
+
+<ParamField path="precio" type="decimal(10,2)" required>
+  Current selling price in Mexican pesos. Precision: 10 digits total, 2 decimal places.
+</ParamField>
+
+<ParamField path="stock_actual" type="int(11)" default="0">
+  Current inventory quantity. Defaults to 0 if not specified. Updated by `movimiento_stock` transactions.
+</ParamField>
+
+<ParamField path="id_categoria" type="int(11)" required>
+  Foreign key reference to `categoria.id_categoria`. Defines product category (Caballero, Dama, etc.).
+</ParamField>
+
+<ParamField path="id_talla" type="int(11)" required>
+  Foreign key reference to `talla.id_talla`. Specifies size variant (ch, m, g, ech, eg).
+</ParamField>
+
+<ParamField path="id_color" type="int(11)" required>
+  Foreign key reference to `color.id_color`. Specifies color variant (Negro Nocturno, Blanco Pureza, etc.).
+</ParamField>
+
+## CREATE TABLE Statement
+
+```sql
+CREATE TABLE `prenda` (
+  `id_prenda` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `precio` decimal(10,2) NOT NULL,
+  `stock_actual` int(11) DEFAULT 0,
+  `id_categoria` int(11) NOT NULL,
+  `id_talla` int(11) NOT NULL,
+  `id_color` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `prenda`
+  ADD PRIMARY KEY (`id_prenda`),
+  ADD KEY `fk_prenda_talla` (`id_talla`),
+  ADD KEY `fk_prenda_color` (`id_color`),
+  ADD KEY `idx_prenda_nombre` (`nombre`),
+  ADD KEY `idx_prenda_cat_talla` (`id_categoria`,`id_talla`);
+
+ALTER TABLE `prenda`
+  MODIFY `id_prenda` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `prenda`
+  ADD CONSTRAINT `fk_prenda_cat` FOREIGN KEY (`id_categoria`) REFERENCES `categoria` (`id_categoria`),
+  ADD CONSTRAINT `fk_prenda_color` FOREIGN KEY (`id_color`) REFERENCES `color` (`id_color`),
+  ADD CONSTRAINT `fk_prenda_talla` FOREIGN KEY (`id_talla`) REFERENCES `talla` (`id_talla`);
+```
+
+## Indexes
+
+| Index Name | Type | Columns | Purpose |
+|------------|------|---------|----------|
+| `PRIMARY` | PRIMARY KEY | `id_prenda` | Unique identifier |
+| `fk_prenda_talla` | INDEX | `id_talla` | Foreign key lookup |
+| `fk_prenda_color` | INDEX | `id_color` | Foreign key lookup |
+| `idx_prenda_nombre` | INDEX | `nombre` | Product name searches |
+| `idx_prenda_cat_talla` | COMPOSITE | `id_categoria`, `id_talla` | Category + size filtering |
+
+## Foreign Key Relationships
+
+### Parent Tables (Referenced)
+
+<CardGroup cols={3}>
+  <Card title="categoria" icon="tags">
+    **Constraint:** `fk_prenda_cat`  
+    **Column:** `id_categoria` → `categoria.id_categoria`
+  </Card>
+  
+  <Card title="talla" icon="ruler">
+    **Constraint:** `fk_prenda_talla`  
+    **Column:** `id_talla` → `talla.id_talla`
+  </Card>
+  
+  <Card title="color" icon="palette">
+    **Constraint:** `fk_prenda_color`  
+    **Column:** `id_color` → `color.id_color`
+  </Card>
+</CardGroup>
+
+### Child Tables (Referencing)
+
+<CardGroup cols={3}>
+  <Card title="movimiento_stock" icon="arrows-rotate" href="./movimiento-stock">
+    Tracks inventory movements for this product
+  </Card>
+  
+  <Card title="actualizacion" icon="clock-rotate-left" href="./actualizacion">
+    Records price change history
+  </Card>
+  
+  <Card title="registro" icon="file-lines" href="./registro">
+    Links products to suppliers
+  </Card>
+</CardGroup>
+
+## Sample Data
+
+```sql
+INSERT INTO `prenda` (`id_prenda`, `nombre`, `precio`, `stock_actual`, `id_categoria`, `id_talla`, `id_color`) VALUES
+(1, 'Camisa Oxford Slim', 450.00, 25, 1, 2, 3),
+(2, 'Pantalón Jean Clásico', 650.50, 40, 1, 3, 1),
+(3, 'Vestido de Gala Rojo', 1350.00, 10, 2, 2, 4),
+(4, 'Playera Deportiva Pro', 350.00, 50, 4, 1, 2),
+(5, 'Sudadera Infantil Hoodie', 400.00, 15, 3, 2, 5),
+(21, 'Blusa Seda Elegante', 550.00, 15, 2, 1, 2),
+(22, 'Chaqueta Cuero Sintético', 1200.00, 8, 1, 3, 1),
+(23, 'Short Deportivo Runner', 280.00, 45, 4, 2, 3),
+(25, 'Jeans Skinny Fit Dama', 750.00, 22, 2, 2, 3),
+(26, 'Playera Básica Cuello V', 190.00, 60, 1, 2, 2),
+(27, 'Vestido Midi Estampado', 890.00, 12, 2, 3, 4),
+(28, 'Sudadera con Capucha Gris', 500.00, 18, 1, 3, 5),
+(29, 'Pijama Térmica Infantil', 350.00, 30, 3, 2, 3),
+(30, 'Gorra Deportiva Ajustable', 250.00, 25, 5, 3, 1),
+(31, 'Suéter Lana Merino', 950.00, 10, 1, 3, 5),
+(32, 'Falda Plisada Coreana', 480.00, 20, 2, 1, 4),
+(33, 'Conjunto Deportivo Yoga', 720.00, 15, 4, 2, 1),
+(34, 'Camiseta Manga Larga', 320.00, 45, 3, 3, 2),
+(35, 'Cinturón Cuero Café', 300.00, 25, 5, 3, 5),
+(36, 'Conjunto Pijama Negra', 250.00, 30, 1, 3, 1),
+(38, 'Conjunto Pijama Negra', 220.00, 20, 1, 8, 1);
+```
+
+### Example Records Explained
+
+<ResponseField name="Record 1">
+  **Camisa Oxford Slim** - Men's slim-fit Oxford shirt  
+  Price: $450.00 MXN | Stock: 25 units  
+  Category: Caballero (1) | Size: M (2) | Color: Azul Marino (3)
+</ResponseField>
+
+<ResponseField name="Record 3">
+  **Vestido de Gala Rojo** - Red formal gala dress  
+  Price: $1,350.00 MXN | Stock: 10 units  
+  Category: Dama (2) | Size: M (2) | Color: Rojo Pasión (4)
+</ResponseField>
+
+<ResponseField name="Record 22">
+  **Chaqueta Cuero Sintético** - Synthetic leather jacket  
+  Price: $1,200.00 MXN | Stock: 8 units (low stock)  
+  Category: Caballero (1) | Size: G (3) | Color: Negro Nocturno (1)
+</ResponseField>
+
+## Common Queries
+
+### Get Products with Full Details
+
+```sql
+SELECT 
+    p.id_prenda,
+    p.nombre,
+    p.precio,
+    p.stock_actual,
+    c.nombre as categoria,
+    t.talla,
+    co.nombre as color
+FROM prenda p
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+INNER JOIN talla t ON p.id_talla = t.id_talla
+INNER JOIN color co ON p.id_color = co.id_color
+ORDER BY p.nombre;
+```
+
+### Low Stock Alert (< 15 units)
+
+```sql
+SELECT 
+    p.id_prenda,
+    p.nombre,
+    p.stock_actual,
+    c.nombre as categoria
+FROM prenda p
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+WHERE p.stock_actual < 15
+ORDER BY p.stock_actual ASC;
+```
+
+### Products by Category and Price Range
+
+```sql
+SELECT 
+    p.nombre,
+    p.precio,
+    p.stock_actual,
+    t.talla
+FROM prenda p
+INNER JOIN talla t ON p.id_talla = t.id_talla
+WHERE p.id_categoria = 2  -- Dama category
+  AND p.precio BETWEEN 400 AND 1000
+ORDER BY p.precio DESC;
+```
+
+### Total Inventory Value
+
+```sql
+SELECT 
+    c.nombre as categoria,
+    COUNT(*) as total_productos,
+    SUM(p.stock_actual) as unidades_totales,
+    SUM(p.precio * p.stock_actual) as valor_inventario
+FROM prenda p
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+GROUP BY c.id_categoria, c.nombre
+ORDER BY valor_inventario DESC;
+```
+
+## Business Rules
+
+<Warning>
+  **Stock Integrity:** The `stock_actual` column should only be modified through the `movimiento_stock` table, not directly. Direct updates bypass audit trails.
+</Warning>
+
+<Warning>
+  **Price Updates:** When changing the `precio` field, create a corresponding record in the `actualizacion` table to maintain price history.
+</Warning>
+
+<Info>
+  **Variant Management:** The same product name can exist multiple times with different combinations of size, color, or category. Each combination gets a unique `id_prenda`.
+</Info>
+
+<Tip>
+  **Performance:** Use the composite index `idx_prenda_cat_talla` when filtering by both category and size for optimal query performance.
+</Tip>

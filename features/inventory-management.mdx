@@ -1,0 +1,210 @@
+---
+title: 'Inventory Management'
+description: 'Search, sort, and manage your clothing inventory with real-time stock tracking'
+icon: 'box'
+---
+
+## Overview
+
+The inventory management system provides a comprehensive view of all products in your store. Browse through your entire catalog with advanced search and sorting capabilities, and manage products with full CRUD operations.
+
+<Info>
+  The inventory automatically displays real-time stock levels that are updated through the [Stock Movements](/features/stock-movements) module.
+</Info>
+
+## Main Inventory View
+
+The main inventory page (`index.php`) displays all products in a sortable, searchable table:
+
+<CardGroup cols={2}>
+  <Card title="Dynamic Sorting" icon="arrow-up-arrow-down">
+    Click any column header to sort by ID, name, price, stock, category, size, or color
+  </Card>
+  <Card title="Multi-field Search" icon="magnifying-glass">
+    Search across product names, categories, colors, sizes, prices, and IDs simultaneously
+  </Card>
+  <Card title="Real-time Stock" icon="warehouse">
+    View current stock levels with automatic updates from stock movements
+  </Card>
+  <Card title="Quick Actions" icon="bolt">
+    Edit or delete products directly from the inventory table
+  </Card>
+</CardGroup>
+
+### Database Query
+
+The inventory view pulls data from multiple related tables:
+
+```php
+$sql = "SELECT p.*, c.nombre as cat_nom, t.talla as talla_nom, col.nombre as color_nom 
+        FROM prenda p
+        JOIN categoria c ON p.id_categoria = c.id_categoria
+        JOIN talla t ON p.id_talla = t.id_talla
+        JOIN color col ON p.id_color = col.id_color";
+```
+
+### Search Implementation
+
+The search feature queries multiple fields simultaneously:
+
+```php
+if (!empty($search)) {
+    $sql .= " WHERE p.nombre LIKE :busqueda 
+              OR c.nombre LIKE :busqueda 
+              OR col.nombre LIKE :busqueda 
+              OR t.talla LIKE :busqueda 
+              OR p.precio LIKE :busqueda 
+              OR p.id_prenda = :busqueda_exacta";
+}
+```
+
+<Note>
+  The search supports both partial matches (using LIKE) and exact ID lookups for precise filtering.
+</Note>
+
+## Sortable Columns
+
+The inventory table supports sorting by the following columns:
+
+| Column | Database Field | Sort Type |
+|--------|---------------|----------|
+| ID | `p.id_prenda` | Numeric |
+| Nombre | `p.nombre` | Alphabetic |
+| Precio | `p.precio` | Numeric |
+| Stock | `p.stock_actual` | Numeric |
+| Categoría | `c.nombre` | Alphabetic |
+| Talla | `t.talla` | Alphabetic |
+| Color | `col.nombre` | Alphabetic |
+
+### Column Configuration
+
+Allowed sortable columns are defined in a whitelist:
+
+```php
+$columnas_permitidas = [
+    'id' => 'p.id_prenda',
+    'nombre' => 'p.nombre',
+    'precio' => 'p.precio',
+    'stock' => 'p.stock_actual',
+    'categoria' => 'c.nombre',
+    'talla' => 't.talla',
+    'color' => 'col.nombre'
+];
+```
+
+### Sort Direction Toggle
+
+The header link function maintains both search and sort state:
+
+```php
+function getHeaderLink($col_key, $label, $current_sort, $current_order, $current_search) {
+    $next_order = ($current_sort === $col_key && $current_order === 'ASC') ? 'desc' : 'asc';
+    $icon = ($current_sort === $col_key) ? ($current_order === 'ASC' ? ' ▲' : ' ▼') : '';
+    
+    $url = "?sort={$col_key}&order={$next_order}";
+    if (!empty($current_search)) {
+        $url .= "&search=" . urlencode($current_search);
+    }
+    
+    return "<a href='{$url}'>{$label}{$icon}</a>";
+}
+```
+
+## Search & Filter Workflow
+
+<Steps>
+  <Step title="Enter Search Term">
+    Type a search query in the search box (e.g., "Camisa", "Azul", "M", or a specific price)
+  </Step>
+  <Step title="Submit Search">
+    Click "Buscar" to filter results. The current sort order is maintained during search.
+  </Step>
+  <Step title="View Results">
+    The table displays all matching products. If no results are found, a friendly message appears.
+  </Step>
+  <Step title="Clear Search">
+    Click "Limpiar" to reset and view the full inventory again.
+  </Step>
+</Steps>
+
+## Product Data Structure
+
+Each product (prenda) contains the following fields:
+
+```sql
+CREATE TABLE `prenda` (
+  `id_prenda` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `precio` decimal(10,2) NOT NULL,
+  `stock_actual` int(11) DEFAULT 0,
+  `id_categoria` int(11) NOT NULL,
+  `id_talla` int(11) NOT NULL,
+  `id_color` int(11) NOT NULL
+);
+```
+
+<Tabs>
+  <Tab title="Product Fields">
+    - **id_prenda**: Unique product identifier (auto-increment)
+    - **nombre**: Product name (e.g., "Camisa Oxford Slim")
+    - **precio**: Current price in decimal format (10,2)
+    - **stock_actual**: Real-time inventory count
+  </Tab>
+  <Tab title="Foreign Keys">
+    - **id_categoria**: Links to categoria table
+    - **id_talla**: Links to talla (size) table
+    - **id_color**: Links to color table
+  </Tab>
+</Tabs>
+
+## Quick Actions
+
+Each product row includes action buttons:
+
+### Edit Button
+```php
+<a href='editar.php?id={$row['id_prenda']}' class='btn btn-sm btn-outline-warning'>
+  Editar
+</a>
+```
+
+### Delete Button
+```php
+<a href='eliminar.php?id={$row['id_prenda']}' 
+   class='btn btn-sm btn-outline-danger' 
+   onclick='return confirm("¿Eliminar?")'>
+  Borrar
+</a>
+```
+
+<Warning>
+  Deleting a product with associated records (stock movements, price updates) will fail due to foreign key constraints. This prevents orphaned data.
+</Warning>
+
+## Empty State
+
+When no products match the search criteria:
+
+```php
+if ($stmt->rowCount() > 0) {
+    // Display results
+} else {
+    echo "<tr><td colspan='8' class='text-center py-4 text-muted'>" .
+         "No se encontraron prendas que coincidan con la búsqueda." .
+         "</td></tr>";
+}
+```
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Catalog Management" icon="tags" href="/features/catalog-management">
+    Manage categories, colors, and sizes used in inventory
+  </Card>
+  <Card title="Stock Movements" icon="truck" href="/features/stock-movements">
+    Track entries, exits, and adjustments that affect stock levels
+  </Card>
+  <Card title="Price Updates" icon="dollar-sign" href="/features/price-updates">
+    View historical price changes for products
+  </Card>
+</CardGroup>

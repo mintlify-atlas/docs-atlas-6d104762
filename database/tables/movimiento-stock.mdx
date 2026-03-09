@@ -1,0 +1,387 @@
+---
+title: movimiento_stock Table
+description: Inventory movement tracking table recording all stock entries, exits, and adjustments
+---
+
+## Overview
+
+The `movimiento_stock` table is the core transactional table for inventory management. It maintains a complete audit trail of all stock movements including receipts (entrada), sales/dispatches (salida), and inventory adjustments (ajuste). Each record creates an immutable history of quantity changes linked to specific products and employees.
+
+**Table Name:** `movimiento_stock`  
+**Engine:** InnoDB  
+**Character Set:** utf8mb4  
+**Primary Key:** `id_movimiento`
+
+## Table Structure
+
+### Column Definitions
+
+<ParamField path="id_movimiento" type="int(11)" required>
+  Primary key identifier for the stock movement. Auto-increments on insert.
+</ParamField>
+
+<ParamField path="fecha" type="datetime" default="current_timestamp()">
+  Timestamp of when the movement occurred. Automatically set to current timestamp on insert.
+</ParamField>
+
+<ParamField path="tipo_movimiento" type="varchar(10)" required>
+  Type of stock movement. Valid values:
+  - `"entrada"` - Stock entry (receiving inventory)
+  - `"salida"` - Stock exit (sales, shipments)
+  - `"ajuste"` - Stock adjustment (corrections, damage, loss)
+</ParamField>
+
+<ParamField path="cantidad" type="int(11)" required>
+  Quantity of units moved. Can be positive or negative:
+  - Positive: Adds to stock (entrada, or positive ajuste)
+  - Negative: Reduces stock (salida, or negative ajuste)
+</ParamField>
+
+<ParamField path="id_prenda" type="int(11)" required>
+  Foreign key reference to `prenda.id_prenda`. Identifies which product was moved.
+</ParamField>
+
+<ParamField path="id_empleado" type="int(11)" required>
+  Foreign key reference to `empleado.id_empleado`. Records which employee performed the movement.
+</ParamField>
+
+## CREATE TABLE Statement
+
+```sql
+CREATE TABLE `movimiento_stock` (
+  `id_movimiento` int(11) NOT NULL,
+  `fecha` datetime DEFAULT current_timestamp(),
+  `tipo_movimiento` varchar(10) NOT NULL,
+  `cantidad` int(11) NOT NULL,
+  `id_prenda` int(11) NOT NULL,
+  `id_empleado` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `movimiento_stock`
+  ADD PRIMARY KEY (`id_movimiento`),
+  ADD KEY `fk_mov_prenda` (`id_prenda`),
+  ADD KEY `fk_mov_emp` (`id_empleado`),
+  ADD KEY `idx_movimiento_fecha` (`fecha`);
+
+ALTER TABLE `movimiento_stock`
+  MODIFY `id_movimiento` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `movimiento_stock`
+  ADD CONSTRAINT `fk_mov_emp` FOREIGN KEY (`id_empleado`) REFERENCES `empleado` (`id_empleado`),
+  ADD CONSTRAINT `fk_mov_prenda` FOREIGN KEY (`id_prenda`) REFERENCES `prenda` (`id_prenda`);
+```
+
+## Indexes
+
+| Index Name | Type | Columns | Purpose |
+|------------|------|---------|----------|
+| `PRIMARY` | PRIMARY KEY | `id_movimiento` | Unique identifier |
+| `fk_mov_prenda` | INDEX | `id_prenda` | Foreign key lookup for products |
+| `fk_mov_emp` | INDEX | `id_empleado` | Foreign key lookup for employees |
+| `idx_movimiento_fecha` | INDEX | `fecha` | Temporal queries and date-range filtering |
+
+## Foreign Key Relationships
+
+### Parent Tables (Referenced)
+
+<CardGroup cols={2}>
+  <Card title="prenda" icon="shirt" href="./prenda">
+    **Constraint:** `fk_mov_prenda`  
+    **Column:** `id_prenda` → `prenda.id_prenda`  
+    Links movement to specific product
+  </Card>
+  
+  <Card title="empleado" icon="user" href="./empleado">
+    **Constraint:** `fk_mov_emp`  
+    **Column:** `id_empleado` → `empleado.id_empleado`  
+    Tracks employee who performed movement
+  </Card>
+</CardGroup>
+
+## Sample Data
+
+```sql
+INSERT INTO `movimiento_stock` (`id_movimiento`, `fecha`, `tipo_movimiento`, `cantidad`, `id_prenda`, `id_empleado`) VALUES
+(1, '2026-02-07 20:24:25', 'entrada', 10, 1, 2),
+(2, '2026-02-07 20:24:25', 'salida', 5, 2, 3),
+(3, '2026-02-07 20:24:25', 'ajuste', -2, 3, 1),
+(4, '2026-02-07 20:24:25', 'entrada', 20, 4, 5),
+(5, '2026-02-07 20:24:25', 'salida', 1, 5, 2),
+(66, '2025-10-20 09:00:00', 'entrada', 10, 21, 2),
+(67, '2025-10-20 14:30:00', 'salida', 2, 22, 3),
+(68, '2025-10-21 08:15:00', 'entrada', 50, 23, 1),
+(70, '2025-10-21 16:45:00', 'ajuste', -1, 25, 4),
+(71, '2025-10-22 10:20:00', 'entrada', 20, 26, 1),
+(72, '2026-01-22 13:10:00', 'salida', 3, 27, 5),
+(73, '2026-01-23 09:45:00', 'entrada', 15, 28, 2),
+(74, '2026-01-23 18:20:00', 'salida', 1, 29, 3),
+(75, '2026-01-24 07:30:00', 'entrada', 30, 30, 4),
+(76, '2026-01-24 15:00:00', 'salida', 10, 31, 2),
+(77, '2026-01-25 11:15:00', 'entrada', 5, 32, 1),
+(78, '2026-01-25 12:00:00', 'salida', 2, 33, 5),
+(79, '2026-01-26 10:00:00', 'entrada', 12, 34, 2),
+(80, '2026-01-26 16:30:00', 'salida', 4, 35, 3),
+(81, '2026-02-18 22:11:01', 'ajuste', 5, 34, 1),
+(82, '2026-02-24 07:26:22', 'entrada', 15, 36, 2),
+(83, '2026-02-24 10:26:42', 'entrada', 10, 38, 2);
+```
+
+### Movement Type Examples
+
+<ResponseField name="Entrada (Stock Entry)">
+  **Example:** ID 1 - 10 units of product 1 received by employee 2  
+  **Use Cases:** Supplier deliveries, returns from customers, transfers from other locations  
+  **Effect:** Increases `prenda.stock_actual`
+</ResponseField>
+
+<ResponseField name="Salida (Stock Exit)">
+  **Example:** ID 2 - 5 units of product 2 dispatched by employee 3  
+  **Use Cases:** Customer sales, transfers to other locations, shipments  
+  **Effect:** Decreases `prenda.stock_actual`
+</ResponseField>
+
+<ResponseField name="Ajuste (Stock Adjustment)">
+  **Example:** ID 3 - Negative adjustment of 2 units on product 3 by manager (employee 1)  
+  **Use Cases:** Inventory corrections, damaged goods, theft/loss, cycle count adjustments  
+  **Effect:** Can increase or decrease `prenda.stock_actual` (based on quantity sign)
+</ResponseField>
+
+## Movement Types
+
+### Entrada (Entry)
+- **Purpose:** Record incoming inventory
+- **Quantity:** Always positive
+- **Common Scenarios:**
+  - Receiving supplier shipments
+  - Customer returns
+  - Inter-location transfers (receiving end)
+- **Employee Role:** Typically staff (empleado)
+
+### Salida (Exit)
+- **Purpose:** Record outgoing inventory
+- **Quantity:** Positive value representing units leaving
+- **Common Scenarios:**
+  - Customer purchases
+  - Inter-location transfers (sending end)
+  - Waste/disposal
+- **Employee Role:** Mix of staff and managers
+
+### Ajuste (Adjustment)
+- **Purpose:** Correct inventory discrepancies
+- **Quantity:** Can be positive (increase) or negative (decrease)
+- **Common Scenarios:**
+  - Physical inventory counts
+  - Damage or spoilage
+  - Theft or loss
+  - Data entry corrections
+- **Employee Role:** Typically managers (gerente)
+
+## Common Queries
+
+### Recent Stock Movements
+
+```sql
+SELECT 
+    ms.id_movimiento,
+    ms.fecha,
+    ms.tipo_movimiento,
+    ms.cantidad,
+    p.nombre as producto,
+    e.nombre as empleado
+FROM movimiento_stock ms
+INNER JOIN prenda p ON ms.id_prenda = p.id_prenda
+INNER JOIN empleado e ON ms.id_empleado = e.id_empleado
+ORDER BY ms.fecha DESC
+LIMIT 20;
+```
+
+### Movement Summary by Type
+
+```sql
+SELECT 
+    ms.tipo_movimiento,
+    COUNT(*) as total_movimientos,
+    SUM(ms.cantidad) as unidades_totales,
+    AVG(ms.cantidad) as promedio_cantidad
+FROM movimiento_stock ms
+GROUP BY ms.tipo_movimiento
+ORDER BY ms.tipo_movimiento;
+```
+
+### Product Movement History
+
+```sql
+SELECT 
+    ms.fecha,
+    ms.tipo_movimiento,
+    ms.cantidad,
+    e.nombre as empleado,
+    e.puesto
+FROM movimiento_stock ms
+INNER JOIN empleado e ON ms.id_empleado = e.id_empleado
+WHERE ms.id_prenda = 1
+ORDER BY ms.fecha DESC;
+```
+
+### Daily Movement Report
+
+```sql
+SELECT 
+    DATE(ms.fecha) as fecha,
+    ms.tipo_movimiento,
+    COUNT(*) as transacciones,
+    SUM(ms.cantidad) as unidades
+FROM movimiento_stock ms
+WHERE ms.fecha >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+GROUP BY DATE(ms.fecha), ms.tipo_movimiento
+ORDER BY fecha DESC, ms.tipo_movimiento;
+```
+
+### Employee Activity Report
+
+```sql
+SELECT 
+    e.nombre as empleado,
+    e.puesto,
+    ms.tipo_movimiento,
+    COUNT(*) as operaciones,
+    SUM(ms.cantidad) as unidades_procesadas
+FROM movimiento_stock ms
+INNER JOIN empleado e ON ms.id_empleado = e.id_empleado
+GROUP BY e.id_empleado, e.nombre, e.puesto, ms.tipo_movimiento
+ORDER BY e.nombre, ms.tipo_movimiento;
+```
+
+### Stock Movement Timeline for Product
+
+```sql
+SELECT 
+    ms.fecha,
+    ms.tipo_movimiento,
+    ms.cantidad,
+    @running_total := @running_total + 
+        CASE 
+            WHEN ms.tipo_movimiento = 'entrada' THEN ms.cantidad
+            WHEN ms.tipo_movimiento = 'salida' THEN -ms.cantidad
+            WHEN ms.tipo_movimiento = 'ajuste' THEN ms.cantidad
+        END as stock_calculado,
+    e.nombre as empleado
+FROM movimiento_stock ms
+CROSS JOIN (SELECT @running_total := 0) r
+INNER JOIN empleado e ON ms.id_empleado = e.id_empleado
+WHERE ms.id_prenda = 1
+ORDER BY ms.fecha ASC;
+```
+
+### Movements by Date Range and Type
+
+```sql
+SELECT 
+    p.nombre as producto,
+    c.nombre as categoria,
+    ms.tipo_movimiento,
+    SUM(ms.cantidad) as total_unidades,
+    COUNT(*) as num_transacciones
+FROM movimiento_stock ms
+INNER JOIN prenda p ON ms.id_prenda = p.id_prenda
+INNER JOIN categoria c ON p.id_categoria = c.id_categoria
+WHERE ms.fecha BETWEEN '2026-01-01' AND '2026-02-28'
+GROUP BY p.id_prenda, p.nombre, c.nombre, ms.tipo_movimiento
+ORDER BY total_unidades DESC;
+```
+
+## Business Rules
+
+<Warning>
+  **Immutable Records:** Stock movements should never be updated or deleted once created. They form an audit trail. If a correction is needed, create a new adjustment (ajuste) movement.
+</Warning>
+
+<Warning>
+  **Stock Synchronization:** After inserting a movement, the application should update `prenda.stock_actual` accordingly:
+  - `entrada`: ADD cantidad
+  - `salida`: SUBTRACT cantidad
+  - `ajuste`: ADD cantidad (can be negative)
+</Warning>
+
+<Info>
+  **Adjustment Authorization:** Typically only managers (`puesto = 'gerente'`) should be authorized to create `ajuste` movements, as they represent inventory corrections.
+</Info>
+
+<Tip>
+  **Date Indexing:** The `idx_movimiento_fecha` index optimizes queries filtering by date ranges, which are common for reports and analytics.
+</Tip>
+
+## Stock Calculation Logic
+
+### Manual Stock Recalculation
+
+```sql
+SELECT 
+    p.id_prenda,
+    p.nombre,
+    p.stock_actual as stock_registrado,
+    COALESCE(SUM(
+        CASE 
+            WHEN ms.tipo_movimiento = 'entrada' THEN ms.cantidad
+            WHEN ms.tipo_movimiento = 'salida' THEN -ms.cantidad
+            WHEN ms.tipo_movimiento = 'ajuste' THEN ms.cantidad
+        END
+    ), 0) as stock_calculado,
+    p.stock_actual - COALESCE(SUM(
+        CASE 
+            WHEN ms.tipo_movimiento = 'entrada' THEN ms.cantidad
+            WHEN ms.tipo_movimiento = 'salida' THEN -ms.cantidad
+            WHEN ms.tipo_movimiento = 'ajuste' THEN ms.cantidad
+        END
+    ), 0) as diferencia
+FROM prenda p
+LEFT JOIN movimiento_stock ms ON p.id_prenda = ms.id_prenda
+GROUP BY p.id_prenda, p.nombre, p.stock_actual
+HAVING diferencia != 0;
+```
+
+## Analytics and Reporting
+
+### Monthly Movement Trends
+
+```sql
+SELECT 
+    DATE_FORMAT(ms.fecha, '%Y-%m') as mes,
+    ms.tipo_movimiento,
+    COUNT(*) as transacciones,
+    SUM(ms.cantidad) as unidades
+FROM movimiento_stock ms
+WHERE ms.fecha >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+GROUP BY DATE_FORMAT(ms.fecha, '%Y-%m'), ms.tipo_movimiento
+ORDER BY mes DESC, ms.tipo_movimiento;
+```
+
+### High-Activity Products
+
+```sql
+SELECT 
+    p.nombre as producto,
+    COUNT(ms.id_movimiento) as total_movimientos,
+    SUM(CASE WHEN ms.tipo_movimiento = 'entrada' THEN ms.cantidad ELSE 0 END) as entradas,
+    SUM(CASE WHEN ms.tipo_movimiento = 'salida' THEN ms.cantidad ELSE 0 END) as salidas,
+    SUM(CASE WHEN ms.tipo_movimiento = 'ajuste' THEN ms.cantidad ELSE 0 END) as ajustes
+FROM movimiento_stock ms
+INNER JOIN prenda p ON ms.id_prenda = p.id_prenda
+GROUP BY p.id_prenda, p.nombre
+HAVING total_movimientos > 2
+ORDER BY total_movimientos DESC;
+```
+
+## Extension Possibilities
+
+<Tip>
+  **Recommended Enhancements:**
+  - Add `motivo` TEXT field to explain adjustment reasons
+  - Add `documento_referencia` VARCHAR(50) for purchase orders, sales invoices
+  - Add `lote` or `numero_serie` for batch tracking
+  - Add `ubicacion_origen` and `ubicacion_destino` for warehouse management
+  - Add `autorizado_por` INT for manager approval tracking
+  - Add `costo_unitario` DECIMAL for inventory valuation
+  - Add `notas` TEXT for additional context
+  - Create trigger to automatically update `prenda.stock_actual`
+</Tip>
