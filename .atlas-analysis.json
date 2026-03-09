@@ -1,0 +1,92 @@
+{
+  "projectType": "saas",
+  "projectName": "TiendaRopa",
+  "projectDescription": "Clothing store inventory management system with product tracking, employee management, and stock movements",
+  "theme": "mint",
+  "primaryColor": "#1e293b",
+  "lightColor": "#3b82f6",
+  "darkColor": "#0f172a",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "database-setup"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/inventory-management",
+              "features/catalog-management",
+              "features/stock-movements",
+              "features/price-updates"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "guides/managing-products",
+              "guides/managing-categories",
+              "guides/managing-employees",
+              "guides/managing-suppliers",
+              "guides/stock-operations"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Database Reference",
+        "groups": [
+          {
+            "group": "Schema",
+            "pages": [
+              "database/overview",
+              "database/tables/prenda",
+              "database/tables/categoria",
+              "database/tables/empleado",
+              "database/tables/proveedor",
+              "database/tables/movimiento-stock",
+              "database/tables/actualizacion",
+              "database/tables/registro"
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              "database/relationships",
+              "database/indexes"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Product inventory management with categories, sizes, and colors",
+    "Employee and supplier tracking",
+    "Stock movement recording (entrada, salida, ajuste)",
+    "Price update history tracking",
+    "Product registration with supplier association",
+    "Advanced search and sorting capabilities"
+  ],
+  "publicApiSurface": [
+    "index.php - Main product inventory view",
+    "crear.php - Create new products",
+    "editar.php - Edit existing products",
+    "eliminar.php - Delete products",
+    "categorias.php - Category management",
+    "colores.php - Color catalog management",
+    "tallas.php - Size management",
+    "empleados.php - Employee management",
+    "proveedores.php - Supplier management",
+    "movimientos.php - Stock movements",
+    "actualizaciones.php - Price update history",
+    "registros.php - Product registration records"
+  ]
+}
